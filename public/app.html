@@ -94,6 +94,31 @@
                 <div id="tvWidgetContainer" class="chart-container-div" style="display: none; height: 500px;"></div>
             </section>
 
+            <!-- Option Chain Section (Derivatives Only) -->
+            <section class="option-chain-section" id="optionChainSection" style="display: none; margin-top: 20px;">
+                <div class="section-header">
+                    <h2>Options Chain</h2>
+                    <span id="optionSpotInfo" style="color: #8b949e; font-size: 0.9em;"></span>
+                </div>
+                <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                    <table class="data-table" id="optionsTable" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: right; background: rgba(35, 134, 54, 0.1);">Call OI</th>
+                                <th style="text-align: right; background: rgba(35, 134, 54, 0.1);">Call LTP</th>
+                                <th style="text-align: center; background: #30363d; font-weight: bold; color: #fff;">STRIKE</th>
+                                <th style="text-align: left; background: rgba(218, 54, 51, 0.1);">Put LTP</th>
+                                <th style="text-align: left; background: rgba(218, 54, 51, 0.1);">Put OI</th>
+                            </tr>
+                        </thead>
+                        <tbody id="optionsTableBody">
+                            <tr><td colspan="5" style="text-align: center;">Loading Option Chain...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="optionChainNote" style="color: #8b949e; font-size: 0.8em; text-align: right; margin-top: 5px;"></div>
+            </section>
+
             <!-- 15 Pattern Filter Checkboxes Grid -->
             <section class="pattern-filters-section">
                 <h3>15 Candlestick Pattern Filters</h3>

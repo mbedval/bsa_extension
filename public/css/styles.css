@@ -405,23 +405,11 @@ body {
     color: var(--text-primary);
 }
 
-/* Blinking Animations */
-@keyframes blinkGreen {
-    0% { background-color: var(--card-bg); }
-    50% { background-color: rgba(38, 166, 154, 0.3); }
-    100% { background-color: var(--card-bg); }
+/* Notification Backgrounds */
+.notify-green {
+    background-color: rgba(38, 166, 154, 0.3) !important;
 }
 
-@keyframes blinkRed {
-    0% { background-color: var(--card-bg); }
-    50% { background-color: rgba(239, 83, 80, 0.3); }
-    100% { background-color: var(--card-bg); }
-}
-
-.blink-green {
-    animation: blinkGreen 2s infinite;
-}
-
-.blink-red {
-    animation: blinkRed 2s infinite;
+.notify-red {
+    background-color: rgba(239, 83, 80, 0.3) !important;
 }

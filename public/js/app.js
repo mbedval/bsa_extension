@@ -246,8 +246,22 @@ function setupEventListeners() {
 
 function addTicker() {
     const input = document.getElementById('newTickerInput');
-    const ticker = input.value.trim();
+    const ticker = input.value.trim().toUpperCase();
     if (!ticker) return;
+
+    if (region === 'india_deriv') {
+        // Basic list of valid indices and top F&O stocks
+        const validDerivs = [
+            '^NSEI', '^BSESN', '^NSEBANK', '^CNXIT', 'RELIANCE.NS', 'HDFCBANK.NS', 
+            'INFY.NS', 'TCS.NS', 'ICICIBANK.NS', 'SBIN.NS', 'BAJFINANCE.NS', 
+            'BHARTIARTL.NS', 'KOTAKBANK.NS', 'ITC.NS', 'LT.NS', 'AXISBANK.NS', 
+            'ASIANPAINT.NS', 'MARUTI.NS', 'HINDUNILVR.NS', 'BSE.NS', 'TATAMOTORS.NS'
+        ];
+        if (!validDerivs.includes(ticker)) {
+            alert(`"${ticker}" is not a recognized NSE Derivative or Index in our database. Please use a valid F&O ticker like ^NSEI, RELIANCE.NS, etc.`);
+            return;
+        }
+    }
     
     fetch(`/api/watchlist/add?region=${region}`, {
         method: 'POST',
@@ -347,9 +361,52 @@ function refreshCurrentTicker(forceSync = false) {
         }
         
         filterAndRenderTable();
+        fetchOptionChain();
     }).catch(err => {
         console.error('Error refreshing current ticker:', err);
     });
+}
+
+function fetchOptionChain() {
+    if (region !== 'india_deriv') {
+        const sec = document.getElementById('optionChainSection');
+        if(sec) sec.style.display = 'none';
+        return;
+    }
+    
+    const sec = document.getElementById('optionChainSection');
+    if(sec) sec.style.display = 'block';
+    
+    fetch(`/api/options?ticker=${encodeURIComponent(currentTicker)}&region=${region}`)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('optionSpotInfo').textContent = `Spot Price: ₹${data.spot}`;
+            document.getElementById('optionChainNote').textContent = data.note || '';
+            
+            const tbody = document.getElementById('optionsTableBody');
+            tbody.innerHTML = '';
+            
+            if (!data.options || data.options.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No option chain data available.</td></tr>';
+                return;
+            }
+            
+            data.options.forEach(opt => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: right; background: rgba(35, 134, 54, 0.05);">${opt.call_oi.toLocaleString()}</td>
+                    <td style="text-align: right; background: rgba(35, 134, 54, 0.05); font-weight: bold; color: #3fb950;">₹${opt.call_ltp.toFixed(2)}</td>
+                    <td style="text-align: center; background: rgba(48, 54, 61, 0.5); font-weight: bold; color: #fff;">${opt.strike}</td>
+                    <td style="text-align: left; background: rgba(218, 54, 51, 0.05); font-weight: bold; color: #f85149;">₹${opt.put_ltp.toFixed(2)}</td>
+                    <td style="text-align: left; background: rgba(218, 54, 51, 0.05);">${opt.put_oi.toLocaleString()}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => {
+            console.error('Error fetching options:', err);
+            document.getElementById('optionsTableBody').innerHTML = '<tr><td colspan="5" style="text-align: center;">Error loading options chain.</td></tr>';
+        });
 }
 
 function updateMetricCards() {
@@ -637,15 +694,15 @@ function triggerNotification(pattern) {
     const box = document.getElementById('patternBox');
     
     // Remove old classes just in case
-    box.classList.remove('blink-green', 'blink-red');
+    box.classList.remove('notify-green', 'notify-red');
     
     // Add appropriate class
-    const blinkClass = pattern.pattern_type === 'Bullish' ? 'blink-green' : 'blink-red';
-    box.classList.add(blinkClass);
+    const notifyClass = pattern.pattern_type === 'Bullish' ? 'notify-green' : 'notify-red';
+    box.classList.add(notifyClass);
     
-    // Stop blinking after 1 minute (60000 ms)
+    // Stop highlighting after 1 minute (60000 ms)
     setTimeout(() => {
-        box.classList.remove(blinkClass);
+        box.classList.remove(notifyClass);
     }, 60000);
     
     // Browser System Notification

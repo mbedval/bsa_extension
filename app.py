@@ -13,9 +13,12 @@ except ImportError:
 import math
 
 def get_db_path(region):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     if region == 'us':
-        return '/home/jmbx/apps/bsa_extension/us_database.sqlite'
-    return '/home/jmbx/apps/bsa_extension/ind_database.sqlite'
+        return os.path.join(base_dir, 'us_database.sqlite')
+    if region == 'india_deriv':
+        return os.path.join(base_dir, 'ind_deriv_database.sqlite')
+    return os.path.join(base_dir, 'ind_database.sqlite')
 
 def init_db(region='india'):
     conn = sqlite3.connect(get_db_path(region))
@@ -58,6 +61,8 @@ def init_db(region='india'):
     # Default watchlist
     if region == 'us':
         default_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+    elif region == 'india_deriv':
+        default_tickers = ['^NSEI', '^BSESN', '^NSEBANK']
     else:
         default_tickers = ['NAUKRI.NS', 'INFY.NS', 'HDFCBANK.NS', 'RELIANCE.NS', 'BSE.NS']
         
@@ -418,6 +423,41 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({'region': region, 'summary': summary}).encode('utf-8'))
             
+        elif path == '/api/options':
+            conn = sqlite3.connect(get_db_path(region))
+            cursor = conn.cursor()
+            cursor.execute("SELECT close FROM candles_range WHERE ticker=? ORDER BY timestamp DESC LIMIT 1", (ticker,))
+            row = cursor.fetchone()
+            conn.close()
+            
+            spot = row[0] if row else 24000.0  # Fallback
+            
+            import random
+            random.seed(spot) # Stable random for demonstration
+            base = round(spot / 50) * 50
+            strikes = [base + i*50 for i in range(-5, 6)]
+            options = []
+            for s in strikes:
+                call_ltp = max(0.5, 300 - (s - spot)*0.5 + random.uniform(-10, 10))
+                put_ltp = max(0.5, 300 + (s - spot)*0.5 + random.uniform(-10, 10))
+                options.append({
+                    'strike': s,
+                    'call_ltp': round(call_ltp, 2),
+                    'call_oi': random.randint(1000, 150000),
+                    'put_ltp': round(put_ltp, 2),
+                    'put_oi': random.randint(1000, 150000)
+                })
+                
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'ticker': ticker, 
+                'spot': spot,
+                'options': options,
+                'note': 'Simulated Option Chain due to Yahoo Finance restrictions'
+            }).encode('utf-8'))
+            
         else:
             super().do_GET()
             
@@ -456,8 +496,11 @@ class RequestHandler(SimpleHTTPRequestHandler):
 if __name__ == '__main__':
     init_db('india')
     init_db('us')
+    init_db('india_deriv')
     
-    os.chdir('/home/jmbx/apps/bsa_extension/public')
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    public_dir = os.path.join(base_dir, 'public')
+    os.chdir(public_dir)
     server = HTTPServer(('0.0.0.0', 8000), RequestHandler)
     print("Serving Multi-Timeframe Pattern Analyzer App on http://localhost:8000")
     server.serve_forever()
