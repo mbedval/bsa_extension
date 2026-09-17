@@ -20,7 +20,7 @@ function fetchSummary() {
         })
         .catch(err => {
             console.error('Error fetching summary:', err);
-            document.getElementById('summaryTableBody').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #ef5350;">Failed to load data.</td></tr>';
+            document.getElementById('summaryTableBody').innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ef5350;">Failed to load data.</td></tr>';
         });
 }
 
@@ -38,7 +38,7 @@ function renderTable(summaryData) {
     tbody.innerHTML = '';
     
     if (summaryData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No patterns found in the database.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No patterns found in the database.</td></tr>';
         return;
     }
     
@@ -62,13 +62,14 @@ function renderTable(summaryData) {
         // Truncate details column to obey the 16 character rule, but since it was specifically excluded for app.js, 
         // we will apply it here unless specified otherwise. We'll use truncateText for most text fields.
         tr.innerHTML = `
-            <td style="font-weight: bold; color: var(--accent-blue);">${p.ticker}</td>
+            <td style="font-weight: bold; color: var(--accent-blue);"><strong>${p.ticker}</strong></td>
             <td>${truncateText(p.pattern_name)}</td>
             <td><span class="${badgeClass}" style="display:inline-block; width:100%; text-align:center;">${sentimentText}</span></td>
             <td><span class="badge" style="background: #30363d;">${p.range}</span></td>
-            <td>₹${p.price.toFixed(2)}</td>
+            <td style="font-weight: bold; color: #58a6ff;">₹${p.live_price !== 0.0 ? p.live_price : '--'}</td>
+            <td>${p.pattern_price !== '--' ? '₹' + p.pattern_price : '--'}</td>
             <td>${truncateText(p.datetime)}</td>
-            <td>${truncateText(p.details)}</td>
+            <td style="font-size: 0.85em; color: var(--text-secondary);">${truncateText(p.details)}</td>
         `;
         tbody.appendChild(tr);
     });

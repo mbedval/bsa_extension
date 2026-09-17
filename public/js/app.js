@@ -31,7 +31,19 @@ document.addEventListener('DOMContentLoaded', () => {
     initPatternCheckboxes();
     setupEventListeners();
     initTradingViewChart();
-    loadWatchlist(region === 'us' ? 'TSLA' : 'BSE.NS');
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTicker = urlParams.get('ticker');
+    
+    if (urlTicker) {
+        loadWatchlist(urlTicker);
+    } else if (region === 'us') {
+        loadWatchlist('TSLA');
+    } else if (region === 'india_deriv') {
+        loadWatchlist('^NSEI');
+    } else {
+        loadWatchlist('BSE.NS');
+    }
     
     // Request notification permission
     if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {

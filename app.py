@@ -393,7 +393,20 @@ class RequestHandler(SimpleHTTPRequestHandler):
         elif path == '/api/summary':
             conn = sqlite3.connect(get_db_path(region))
             cursor = conn.cursor()
-            # Fetch the most recent pattern per ticker across any timeframe
+            
+            # 1. Get all tickers in watchlist
+            cursor.execute("SELECT ticker FROM watchlist")
+            watchlist_tickers = [row[0] for row in cursor.fetchall()]
+            
+            if not watchlist_tickers:
+                conn.close()
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'region': region, 'summary': []}).encode('utf-8'))
+                return
+
+            # 2. Fetch the most recent pattern per ticker across any timeframe
             cursor.execute("""
                 SELECT ticker, range_key, timestamp, datetime_str, pattern_name, pattern_type, price, details
                 FROM patterns_range 
@@ -402,23 +415,51 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     FROM patterns_range 
                     GROUP BY ticker
                 )
-                ORDER BY timestamp DESC
             """)
-            rows = cursor.fetchall()
+            pattern_rows = cursor.fetchall()
             conn.close()
             
-            summary = []
-            for r in rows:
-                summary.append({
-                    'ticker': r[0],
+            # Map patterns by ticker
+            patterns_by_ticker = {
+                r[0]: {
                     'range': r[1],
                     'timestamp': r[2],
                     'datetime': r[3],
                     'pattern_name': r[4],
                     'pattern_type': r[5],
-                    'price': r[6],
+                    'pattern_price': r[6],
                     'details': r[7]
+                } for r in pattern_rows
+            }
+            
+            # 3. Fetch live prices via yfinance for all watchlist tickers simultaneously
+            live_prices = {}
+            try:
+                import yfinance as yf
+                data = yf.download(watchlist_tickers, period='1d', interval='1m', progress=False)
+                if not data.empty and 'Close' in data:
+                    live_prices = data['Close'].iloc[-1].to_dict()
+            except Exception as e:
+                print("Error fetching live prices in summary:", e)
+            
+            # 4. Construct final summary payload
+            summary = []
+            for t in watchlist_tickers:
+                p_data = patterns_by_ticker.get(t, {})
+                summary.append({
+                    'ticker': t,
+                    'live_price': round(live_prices.get(t, 0.0), 2) if not __import__('math').isnan(live_prices.get(t, 0.0)) else 0.0,
+                    'range': p_data.get('range', '--'),
+                    'timestamp': p_data.get('timestamp', 0),
+                    'datetime': p_data.get('datetime', '--'),
+                    'pattern_name': p_data.get('pattern_name', 'No Pattern'),
+                    'pattern_type': p_data.get('pattern_type', 'Neutral'),
+                    'pattern_price': p_data.get('pattern_price', '--'),
+                    'details': p_data.get('details', '--')
                 })
+            
+            # Sort by pattern timestamp descending, then ticker
+            summary.sort(key=lambda x: (x['timestamp'], x['ticker']), reverse=True)
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -503,6 +544,6 @@ if __name__ == '__main__':
     base_dir = os.path.dirname(os.path.abspath(__file__))
     public_dir = os.path.join(base_dir, 'public')
     os.chdir(public_dir)
-    server = HTTPServer(('0.0.0.0', 8000), RequestHandler)
-    print("Serving Multi-Timeframe Pattern Analyzer App on http://localhost:8000")
+    server = HTTPServer(('0.0.0.0', 8001), RequestHandler)
+    print("Serving Multi-Timeframe Pattern Analyzer App on http://localhost:8001")
     server.serve_forever()
