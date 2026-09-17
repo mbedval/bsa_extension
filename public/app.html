@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Timeframe Stock Pattern & Waveform Analyzer - TradingView Edition</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- TradingView Lightweight Charts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header / Navigation bar -->
+        <header class="navbar">
+            <div class="logo">
+                <span class="logo-icon">📊</span>
+                <h1>TradingView Multi-Timeframe Pattern Engine</h1>
+            </div>
+            <div class="ticker-selector-wrapper">
+                <label for="tickerSelect">Select Ticker:</label>
+                <select id="tickerSelect" class="styled-select"></select>
+                <button id="refreshBtn" class="btn btn-secondary" style="margin-left: 10px;">🔄 Sync Data</button>
+                <button id="removeTickerBtn" class="btn btn-secondary" style="margin-left: 5px; color: #ff5858; border-color: #ff5858;">🗑️ Remove</button>
+            </div>
+            <div class="add-ticker-wrapper">
+                <input type="text" id="newTickerInput" placeholder="e.g. TCS.NS" class="styled-input">
+                <button id="addTickerBtn" class="btn btn-primary">+ Add Ticker</button>
+            </div>
+            <div class="header-actions">
+                <a href="/" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; height: 100%;">🏠 Dashboard</a>
+                <button id="cleanDbBtn" class="btn btn-secondary">🧹 Clean DB</button>
+                <button id="exportScreenshotBtn" class="btn btn-accent">📷 Export HD PNG (1920x1080)</button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Grid -->
+        <main class="dashboard-grid">
+            <!-- Top Metric Cards -->
+            <section class="metrics-bar">
+                <div class="metric-card">
+                    <span class="metric-title">Active Ticker</span>
+                    <span class="metric-value" id="metricTicker">NAUKRI.NS</span>
+                    <span class="metric-sub" id="metricLastTime">--:--</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-title">Latest Price</span>
+                    <span class="metric-value" id="metricPrice">₹0.00</span>
+                    <span class="metric-sub" id="metricPriceChange">+0.00%</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-title">Period High / Low</span>
+                    <span class="metric-value" id="metricHighLow">₹0.00 / ₹0.00</span>
+                    <span class="metric-sub" id="metricRange">Spread: ₹0.00</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-title">Detected Patterns</span>
+                    <span class="metric-value" id="metricPatternCount">0</span>
+                    <span class="metric-sub" id="metricPatternTypes">0 Bullish | 0 Bearish</span>
+                </div>
+            </section>
+
+            <!-- TradingView Charting Section -->
+            <section class="chart-section">
+                <div class="section-header">
+                    <h2>TradingView Candlestick Chart</h2>
+                    <div class="chart-controls">
+                        <!-- 1D, 5D, 1M, 3M, 6M Filter Button Group -->
+                        <div class="range-btn-group" id="rangeBtnGroup">
+                            <button class="range-btn" data-range="1d">1D</button>
+                            <button class="range-btn" data-range="5d">5D</button>
+                            <button class="range-btn active" data-range="1mo">1M</button>
+                            <button class="range-btn" data-range="3mo">3M</button>
+                            <button class="range-btn" data-range="6mo">6M</button>
+                        </div>
+                        <label><input type="checkbox" id="togglePatternMarkers" checked> Show Pattern Markers</label>
+                        <select id="chartModeSelect" class="styled-select-small">
+                            <option value="lightweight" selected>TradingView Lightweight Chart (Custom Data)</option>
+                            <option value="tvwidget">TradingView Live Embed Widget</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Lightweight Chart Container -->
+                <div id="tvChartContainer" class="chart-container-div"></div>
+                
+                <!-- TradingView Live Widget Container (Hidden by default) -->
+                <div id="tvWidgetContainer" class="chart-container-div" style="display: none; height: 500px;"></div>
+            </section>
+
+            <!-- 15 Pattern Filter Checkboxes Grid -->
+            <section class="pattern-filters-section">
+                <h3>15 Candlestick Pattern Filters</h3>
+                <div class="pattern-checkboxes-grid" id="patternCheckboxesGrid">
+                    <!-- Dynamic Checkboxes loaded via JavaScript -->
+                </div>
+            </section>
+
+            <!-- Master Data Table Section -->
+            <section class="table-section">
+                <div class="section-header">
+                    <h2>Detected Candlestick Pattern Log</h2>
+                    <div class="table-actions">
+                        <button id="downloadCsvBtn" class="btn btn-secondary">📥 Download CSV</button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table" id="patternsMasterTable">
+                        <thead>
+                            <tr>
+                                <th>Timestamp (IST)</th>
+                                <th>Pattern Name</th>
+                                <th>Sentiment Type</th>
+                                <th>Price Level</th>
+                                <th>Evaluation Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patternsTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Controls Container -->
+                <div class="pagination-controls">
+                    <div class="pagination-info" id="paginationInfo">
+                        Showing 1 to 10 of 0 entries
+                    </div>
+                    <div class="pagination-buttons">
+                        <button id="prevPageBtn" class="btn btn-small">◄ Prev</button>
+                        <span id="pageCounter" class="page-counter">Page 1 of 1</span>
+                        <button id="nextPageBtn" class="btn btn-small">Next ►</button>
+                    </div>
+                    <div class="page-size-selector">
+                        <label for="pageSizeSelect">Show:</label>
+                        <select id="pageSizeSelect" class="styled-select-small">
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="all">All</option>
+                        </select>
+                        <span>entries</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- TradingView Widget Script -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

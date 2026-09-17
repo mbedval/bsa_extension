@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chart Pattern Radar & Observer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 780px;
+      min-height: 620px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0b0e17;
+      color: #e2e8f0;
+      padding: 14px;
+      user-select: none;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #38bdf8;
+      letter-spacing: 0.3px;
+    }
+    .status-badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 6px #4ade80;
+    }
+
+    /* Active Stock Banner */
+    .active-ticker-bar {
+      background: linear-gradient(90deg, #131d31 0%, #1a253d 100%);
+      border: 1px solid #202d48;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ticker-focus {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ticker-symbol {
+      font-size: 14px;
+      font-weight: 900;
+      color: #38bdf8;
+      font-family: monospace;
+      background: rgba(56, 189, 248, 0.15);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .toggle-chip {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .toggle-chip.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
+
+    /* Market Status Badge */
+    .market-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+    .market-live {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border-color: rgba(34, 197, 94, 0.35);
+      animation: pulse-live 2s ease-in-out infinite;
+    }
+    .market-closed {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.28);
+    }
+    @keyframes pulse-live {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.65; }
+    }
+
+    /* Actions Toolbar */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
+    }
+    .btn-primary { background: #0284c7; color: #ffffff; border-color: #38bdf8; }
+    .btn-danger  { background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(239, 68, 68, 0.25); }
+    .btn-notify  { background: rgba(234, 179, 8, 0.12); color: #fbbf24; border-color: rgba(234, 179, 8, 0.30); }
+    .btn-notify:hover { background: rgba(234, 179, 8, 0.22); border-color: #fbbf24; }
+    .btn-refresh {
+      background: rgba(99, 102, 241, 0.12);
+      color: #a5b4fc;
+      border-color: rgba(99, 102, 241, 0.35);
+    }
+    .btn-refresh:hover {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: #818cf8;
+      color: #e0e7ff;
+    }
+    .btn-refresh.spinning .refresh-icon {
+      display: inline-block;
+      animation: spin-ccw 0.8s linear infinite;
+    }
+    @keyframes spin-ccw {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(-360deg); }
+    }
+
+    /* Period Filter Controls */
+    .period-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .period-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .period-btn {
+      background: #141824;
+      border: 1px solid #1e2638;
+      color: #94a3b8;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .period-btn.active {
+      background: #38bdf8;
+      color: #0f172a;
+      border-color: #38bdf8;
+    }
+
+    /* Pattern Checkbox Grid */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .grid-actions {
+      font-size: 10px;
+      color: #38bdf8;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .grid-actions span:hover { text-decoration: underline; }
+
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .pattern-card {
+      background: #141824;
+      border: 1px solid #1e2638;
+      border-radius: 6px;
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .pattern-card:hover {
+      border-color: #38bdf8;
+      background: #182032;
+    }
+    .pattern-card.active {
+      border-color: #0284c7;
+      background: rgba(2, 132, 199, 0.12);
+      box-shadow: 0 0 0 1px #0284c7;
+    }
+    .pattern-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pattern-checkbox {
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border: 1.5px solid #475569;
+      border-radius: 3px;
+      background: transparent;
+      cursor: pointer;
+      display: grid;
+      place-content: center;
+    }
+    .pattern-checkbox:checked {
+      background: #38bdf8;
+      border-color: #38bdf8;
+    }
+    .pattern-checkbox:checked::before {
+      content: "✓";
+      color: #0f172a;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .pattern-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+    .count-badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 7px;
+      border-radius: 10px;
+      min-width: 24px;
+      text-align: center;
+    }
+    .count-neutral { background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.3); }
+    .count-bullish { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .count-bearish { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    /* Interactive Full Candlestick Chart Panel */
+    .preview-drawer {
+      background: #101522;
+      border: 1px solid #1d273a;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .preview-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preview-meta {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .preview-canvas-wrapper {
+      background: #090c14;
+      border: 1px solid #1e2638;
+      border-radius: 6px;
+      padding: 6px;
+      position: relative;
+    }
+    #chartCanvas {
+      width: 100%;
+      height: 200px;
+      display: block;
+    }
+
+    /* Master Data Table */
+    .table-container {
+      background: #141824;
+      border: 1px solid #1e2638;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      text-align: left;
+    }
+    .data-table th {
+      background: #1b2234;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 9px 10px;
+      border-bottom: 1px solid #242e44;
+    }
+    .data-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #cbd5e1;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .data-table tr {
+      cursor: pointer;
+    }
+    .data-table tr:hover {
+      background: rgba(56, 189, 248, 0.06);
+    }
+    .data-table tr.selected-row {
+      background: rgba(2, 132, 199, 0.15);
+    }
+    .cell-truncate {
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+    .badge-pill {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .pill-bull { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .pill-bear { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .pill-neut { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+
+    .num-mono { font-family: monospace; font-weight: 700; }
+    .txt-green { color: #4ade80; }
+    .txt-red { color: #f87171; }
+    .txt-sky { color: #38bdf8; }
+
+    /* Pagination Bar */
+    .pagination-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #141824;
+      border: 1px solid #1e2638;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+    }
+    .pag-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #94a3b8;
+    }
+    .pag-size-select {
+      background: #0f1420;
+      border: 1px solid #242e44;
+      color: #e2e8f0;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      outline: none;
+    }
+    .pag-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pag-btn {
+      background: #1e2638;
+      border: 1px solid #2d3850;
+      color: #e2e8f0;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .pag-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pag-btn:not(:disabled):hover { background: #38bdf8; color: #0f172a; }
+    .pag-counter { color: #cbd5e1; font-weight: 700; font-size: 10px; padding: 0 4px; }
+    .empty-row { text-align: center; padding: 24px; color: #64748b; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+  <!-- Header & Brand -->
+  <div class="header">
+    <div class="brand">
+      <span style="font-size: 18px;">⚡</span>
+      <div>
+        <div class="brand-title">Chart Pattern Radar</div>
+        <div style="font-size: 10px; color: #64748b;">Live Stream Observer & Detector</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button class="status-badge" id="masterToggleBtn" style="cursor: pointer; border: 1px solid rgba(34, 197, 94, 0.4); outline: none;" title="Click to Enable / Disable Extension Data Collection">
+        <div class="pulse-dot" id="masterToggleDot"></div>
+        <span id="masterToggleText">LIVE SCANNING: ON</span>
+      </button>
+      <div class="header-actions">
+        <button class="btn btn-primary" id="btnDownloadCsv"><span>📥</span> Download CSV</button>
+        <button class="btn" id="btnUploadCsvTrigger"><span>📤</span> Upload CSV</button>
+        <button class="btn" id="btnTakeScreenshot"><span>📸</span> Take Screenshot</button>
+        <input type="file" id="csvFileInput" accept=".csv" style="display: none;" />
+        <button class="btn btn-notify" id="btnTestNotification" title="Verify background notifications work even when popup is closed">🔔 Test Alert</button>
+        <button class="btn btn-refresh" id="btnRefresh" title="Wipe all recorded data and restart stream + pattern detection from scratch">
+          <span class="refresh-icon">↺</span> Refresh
+        </button>
+        <button class="btn btn-danger" id="btnClear">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Stock Focus Banner -->
+  <div class="active-ticker-bar">
+    <div class="ticker-focus">
+      <span style="font-size: 12px; color: #94a3b8;">Focused Stock:</span>
+      <span class="ticker-symbol" id="activeTickerDisplay">—</span>
+      <span style="font-size: 10px; color: #64748b;" id="activeTfDisplay">(1D)</span>
+      <span class="market-badge market-closed" id="marketStatusBadge" title="Loading market status...">🔴 MARKET CLOSED</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">🔒 Tab Thread:</span>
+      <select id="tabSelector" style="background: #0f172a; border: 1px solid #38bdf8; color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; outline: none; cursor: pointer;" title="Select isolated tab scope to display telemetry from a specific Zerodha Kite tab">
+        <option value="AUTO">⚡ Auto (Active Tab)</option>
+      </select>
+      <button class="toggle-chip active" id="btnOnlyActiveStock">Only Active Stock</button>
+      <button class="toggle-chip" id="btnAllStocks">All Stocks</button>
+    </div>
+  </div>
+
+  <!-- Time Period Filter Controls -->
+  <div class="period-toolbar">
+    <span class="period-label">Period:</span>
+    <button class="period-btn active" data-period="ALL">All Time</button>
+    <button class="period-btn" data-period="TODAY">Today</button>
+    <button class="period-btn" data-period="YESTERDAY">Yesterday</button>
+    <button class="period-btn" data-period="LAST7">Last 7 Days</button>
+  </div>
+
+  <!-- Pattern Checkbox Grid -->
+  <div class="section-title">
+    <span>Filter by Candlestick Patterns</span>
+    <div class="grid-actions">
+      <span id="selectAllBtn">Select All</span> &bull; <span id="deselectAllBtn">Deselect All</span>
+    </div>
+  </div>
+
+  <div class="pattern-grid" id="patternGridContainer"></div>
+
+  <!-- Interactive Intraday Day Chart (09:15 - 15:30) & Post-Pattern Outcome -->
+  <div class="preview-drawer" id="previewDrawer">
+    <div class="preview-header">
+      <div class="preview-title" id="prevTitle">
+        <span>📈 Intraday Day Chart (09:15 - 15:30) & Post-Pattern Outcome</span>
+      </div>
+      <div class="preview-meta" id="prevMeta">
+        Pattern Time: <strong style="color: #38bdf8;" id="prevTime">14:30:00</strong> &bull; Post-Pattern Result to 15:30 Close: <strong style="color: #4ade80;" id="prevPrice">+2.15% Move</strong>
+      </div>
+    </div>
+    <div class="preview-canvas-wrapper">
+      <canvas id="chartCanvas" width="740" height="210"></canvas>
+    </div>
+  </div>
+
+  <!-- Master Data Table -->
+  <div class="table-container">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Formation Time</th>
+          <th>Symbol / Ticker</th>
+          <th>TF</th>
+          <th>Pattern Name</th>
+          <th>Category</th>
+          <th>Price (₹)</th>
+          <th>Change %</th>
+          <th>Strength</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="8" class="empty-row">Loading pattern detections...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination Bar -->
+  <div class="pagination-bar">
+    <div class="pag-left">
+      <span>Rows per page:</span>
+      <select id="pageSizeSelect" class="pag-size-select">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="all">All</option>
+      </select>
+      <span id="totalItemsText" style="font-weight: 700; color: #cbd5e1;">(0 items)</span>
+    </div>
+    <div class="pag-controls">
+      <button class="pag-btn" id="btnPrevPage">◄ Prev</button>
+      <span class="pag-counter" id="pageCounterText">Page 1 of 1</span>
+      <button class="pag-btn" id="btnNextPage">Next ►</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
+

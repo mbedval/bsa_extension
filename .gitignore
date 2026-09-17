@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Browser extension build artifacts
+*.zip
+web-ext-artifacts/
+
+# Logs
+*.log
+
+# Node / frontend caches (if used in future)
+node_modules/
+.npm/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage / test outputs
+.coverage
+coverage/
+htmlcov/
+
+# Local runtime files
+*.sqlite3
+*.db

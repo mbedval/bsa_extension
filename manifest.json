@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Chart Pattern Radar",
+  "version": "2.2.0",
+  "description": "Live candlestick & momentum pattern detector for Zerodha Kite and Groww charts. Computes patterns locally in browser.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://kite.zerodha.com/*",
+    "https://*.zerodha.com/*",
+    "https://*.tradingview.com/*",
+    "https://groww.in/*",
+    "https://charting.nseindia.com/*",
+    "https://*.nseindia.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Kite Pattern Radar Status"
+  },
+  "icons": {
+    "16":  "icons/icon-16.png",
+    "48":  "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://kite.zerodha.com/*",
+        "https://*.zerodha.com/*",
+        "https://*.tradingview.com/*",
+        "https://groww.in/*",
+        "https://charting.nseindia.com/*",
+        "https://*.nseindia.com/*"
+      ],
+      "all_frames": true,
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
