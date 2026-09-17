@@ -274,10 +274,12 @@ def evaluate_patterns_range(ticker, range_key, region='india'):
 
 class RequestHandler(SimpleHTTPRequestHandler):
     def translate_path(self, path):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        public_dir = os.path.join(base_dir, 'public')
         if path == '/' or path == '/index.html':
-            return '/home/jmbx/apps/bsa_extension/public/index.html'
-        elif path.startswith('/css/') or path.startswith('/js/'):
-            return '/home/jmbx/apps/bsa_extension/public' + path
+            return os.path.join(public_dir, 'index.html')
+        elif path.startswith('/css/') or path.startswith('/js/') or path == '/app.html' or path == '/summary.html':
+            return public_dir + path
         return super().translate_path(path)
         
     def do_GET(self):
