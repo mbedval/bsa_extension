@@ -13,6 +13,8 @@ let region = new URLSearchParams(window.location.search).get('region') || 'india
 let allCandles = [];
 let allPatterns = [];
 let filteredPatterns = [];
+let knownPatternKeys = new Set();
+let isFirstLoad = true;
 
 // TradingView Lightweight Charts instance
 let tvChart = null;
@@ -31,10 +33,21 @@ document.addEventListener('DOMContentLoaded', () => {
     initTradingViewChart();
     loadWatchlist(region === 'us' ? 'TSLA' : 'BSE.NS');
     
-    // Auto sync every 4 minutes
+    // Request notification permission
+    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+        Notification.requestPermission();
+    }
+    
+    const summaryBtn = document.getElementById('summaryNavBtn');
+    if (summaryBtn) summaryBtn.href = `/summary.html?region=${region}`;
+    
+    // Hook up Replay button
+    document.getElementById('replayPatternBtn').addEventListener('click', replayLastPattern);
+    
+    // Auto sync every 2 minutes
     setInterval(() => {
         refreshCurrentTicker(true);
-    }, 240000);
+    }, 120000);
 });
 
 function initTradingViewChart() {
@@ -173,7 +186,9 @@ function setupEventListeners() {
 
     document.getElementById('tickerSelect').addEventListener('change', (e) => {
         currentTicker = e.target.value;
-        refreshCurrentTicker(false);
+        isFirstLoad = true;
+        knownPatternKeys.clear();
+        refreshCurrentTicker();
     });
     
     document.getElementById('refreshBtn').addEventListener('click', () => {
@@ -304,6 +319,24 @@ function refreshCurrentTicker(forceSync = false) {
         allCandles = candleData.candles || [];
         allPatterns = patternData.patterns || [];
         
+        let newPatternDetected = null;
+        
+        // Iterate backwards (oldest to newest) so newPatternDetected ends up being the absolute newest un-seen pattern
+        for (let i = allPatterns.length - 1; i >= 0; i--) {
+            const p = allPatterns[i];
+            const key = `${p.ticker}-${p.timestamp}-${p.pattern_name}`;
+            if (!isFirstLoad && !knownPatternKeys.has(key)) {
+                newPatternDetected = p; // Will be overwritten by newer ones, ending with the absolute newest
+            }
+            knownPatternKeys.add(key);
+        }
+        
+        isFirstLoad = false;
+        
+        if (newPatternDetected) {
+            triggerNotification(newPatternDetected);
+        }
+        
         updateMetricCards();
         
         const mode = document.getElementById('chartModeSelect').value;
@@ -356,6 +389,24 @@ function updateMetricCards() {
     
     document.getElementById('metricPatternCount').textContent = allPatterns.length.toString();
     document.getElementById('metricPatternTypes').textContent = `${bullCount} Bullish | ${bearCount} Bearish`;
+    
+    const latestCard = document.getElementById('latestPatternCard');
+    const nameEl = document.getElementById('latestPatternName');
+    const detailsEl = document.getElementById('latestPatternDetails');
+    
+    if (allPatterns.length > 0) {
+        const latestP = allPatterns[0];
+        nameEl.textContent = `${latestP.pattern_name} @ ₹${latestP.price.toFixed(2)}`;
+        detailsEl.textContent = `${latestP.datetime} - ${latestP.details}`;
+        
+        latestCard.style.backgroundColor = latestP.pattern_type === 'Bullish' ? 'rgba(38, 166, 154, 0.15)' : (latestP.pattern_type === 'Bearish' ? 'rgba(239, 83, 80, 0.15)' : 'var(--card-bg)');
+        latestCard.style.borderLeft = latestP.pattern_type === 'Bullish' ? '4px solid #26a69a' : (latestP.pattern_type === 'Bearish' ? '4px solid #ef5350' : 'none');
+    } else {
+        nameEl.textContent = '--';
+        detailsEl.textContent = 'Waiting for patterns...';
+        latestCard.style.backgroundColor = 'var(--card-bg)';
+        latestCard.style.borderLeft = 'none';
+    }
 }
 
 function renderTradingViewChart() {
@@ -578,5 +629,39 @@ function exportHDScreenshot() {
     a.download = `${currentTicker}_tradingview_${currentRange}_report_1920x1080.png`;
     document.body.appendChild(a);
     a.click();
+    window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+}
+
+function triggerNotification(pattern) {
+    const box = document.getElementById('patternBox');
+    
+    // Remove old classes just in case
+    box.classList.remove('blink-green', 'blink-red');
+    
+    // Add appropriate class
+    const blinkClass = pattern.pattern_type === 'Bullish' ? 'blink-green' : 'blink-red';
+    box.classList.add(blinkClass);
+    
+    // Stop blinking after 1 minute (60000 ms)
+    setTimeout(() => {
+        box.classList.remove(blinkClass);
+    }, 60000);
+    
+    // Browser System Notification
+    if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("New Pattern Detected", {
+            body: `${pattern.pattern_type} ${pattern.pattern_name} detected on ${pattern.ticker} at ${pattern.datetime}`
+        });
+    }
+}
+
+function replayLastPattern() {
+    if (allPatterns.length > 0) {
+        // Grab the most recent pattern in the list (usually the last one if sorted by time)
+        const sortedPatterns = [...allPatterns].sort((a, b) => b.timestamp - a.timestamp);
+        triggerNotification(sortedPatterns[0]);
+    } else {
+        alert("No patterns available to replay.");
+    }
 }

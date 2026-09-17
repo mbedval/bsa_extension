@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSA Extension - Summary</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .clickable-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .clickable-row:hover {
+            background-color: rgba(88, 166, 255, 0.1);
+        }
+        .summary-badge-bullish {
+            color: #26a69a;
+            font-weight: bold;
+            background: rgba(38, 166, 154, 0.15);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .summary-badge-bearish {
+            color: #ef5350;
+            font-weight: bold;
+            background: rgba(239, 83, 80, 0.15);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .summary-badge-neutral {
+            color: #8b949e;
+            font-weight: bold;
+            background: rgba(139, 148, 158, 0.15);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header / Navigation bar -->
+        <header class="navbar">
+            <div class="logo">
+                <span class="logo-icon">📋</span>
+                <h1 id="pageTitle">Summary (All Tickers)</h1>
+            </div>
+            
+            <div class="header-actions">
+                <a href="/" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; height: 100%;">🏠 Dashboard</a>
+                <a id="analyzerNavBtn" href="/app.html" class="btn btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; height: 100%;">📈 Detailed Analyzer</a>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <section class="table-section" style="grid-column: 1 / -1; margin-top: 20px;">
+                <div class="section-header">
+                    <h2>Latest Pattern per Ticker</h2>
+                    <div class="table-actions">
+                        <button id="refreshSummaryBtn" class="btn btn-primary">🔄 Sync Summary</button>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Latest Pattern</th>
+                                <th>Sentiment</th>
+                                <th>Timeframe</th>
+                                <th>Price</th>
+                                <th>Detected At</th>
+                                <th>Evaluation Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTableBody">
+                            <tr><td colspan="7" style="text-align: center;">Loading Summary...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/js/summary.js"></script>
+</body>
+</html>

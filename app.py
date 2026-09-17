@@ -382,6 +382,41 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({'ticker': ticker, 'range': range_key, 'patterns': patterns}).encode('utf-8'))
             else:
                 self.send_error(400, "Missing ticker")
+                
+        elif path == '/api/summary':
+            conn = sqlite3.connect(get_db_path(region))
+            cursor = conn.cursor()
+            # Fetch the most recent pattern per ticker across any timeframe
+            cursor.execute("""
+                SELECT ticker, range_key, timestamp, datetime_str, pattern_name, pattern_type, price, details
+                FROM patterns_range 
+                WHERE (ticker, timestamp) IN (
+                    SELECT ticker, MAX(timestamp) 
+                    FROM patterns_range 
+                    GROUP BY ticker
+                )
+                ORDER BY timestamp DESC
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+            
+            summary = []
+            for r in rows:
+                summary.append({
+                    'ticker': r[0],
+                    'range': r[1],
+                    'timestamp': r[2],
+                    'datetime': r[3],
+                    'pattern_name': r[4],
+                    'pattern_type': r[5],
+                    'price': r[6],
+                    'details': r[7]
+                })
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'region': region, 'summary': summary}).encode('utf-8'))
             
         else:
             super().do_GET()
