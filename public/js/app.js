@@ -44,10 +44,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hook up Replay button
     document.getElementById('replayPatternBtn').addEventListener('click', replayLastPattern);
     
-    // Auto sync every 2 minutes
+    // Auto sync every 1 minute
     setInterval(() => {
         refreshCurrentTicker(true);
-    }, 120000);
+    }, 60000);
 });
 
 function initTradingViewChart() {
