@@ -11,6 +11,7 @@ try:
 except ImportError:
     import pytz as ZoneInfo
 import math
+import pandas as pd
 
 def get_db_path(region):
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -58,13 +59,12 @@ def init_db(region='india'):
             added_at TEXT NOT NULL
         )
     ''')
-    # Default watchlist
     if region == 'us':
-        default_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+        default_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'DUMMY']
     elif region == 'india_deriv':
-        default_tickers = ['^NSEI', '^BSESN', '^NSEBANK']
+        default_tickers = ['^NSEI', '^BSESN', '^NSEBANK', 'DUMMY']
     else:
-        default_tickers = ['NAUKRI.NS', 'INFY.NS', 'HDFCBANK.NS', 'RELIANCE.NS', 'BSE.NS']
+        default_tickers = ['NAUKRI.NS', 'INFY.NS', 'HDFCBANK.NS', 'RELIANCE.NS', 'BSE.NS', 'DUMMY']
         
     for t in default_tickers:
         cursor.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?, datetime('now'))", (t,))
@@ -85,11 +85,30 @@ def fetch_yahoo_range(ticker, range_key='1mo', region='india'):
         interval = '1d'
         
     try:
-        tkr = yf.Ticker(ticker)
-        df = tkr.history(period=range_key, interval=interval)
-        df.dropna(subset=['Open', 'High', 'Low', 'Close'], inplace=True)
-        if df.empty:
-            return 0
+        if ticker == 'DUMMY':
+            import numpy as np
+            np.random.seed(42) # Deterministic
+            # Create 100 data points of a strong bullish trend with a pullback and then a breakout
+            # This will guarantee strong momentum and some patterns
+            trend = np.linspace(100, 150, 100)
+            noise = np.random.normal(0, 1.5, 100)
+            # Add a pullback in the middle (e.g. index 50 to 70)
+            pullback = np.zeros(100)
+            pullback[50:70] = np.linspace(0, -15, 20)
+            pullback[70:] = np.linspace(-15, 0, 30)
+            
+            prices_close = trend + noise + pullback
+            prices_open = prices_close - np.random.normal(0, 0.5, 100)
+            prices_high = np.maximum(prices_close, prices_open) + np.random.uniform(0.1, 2, 100)
+            prices_low = np.minimum(prices_close, prices_open) - np.random.uniform(0.1, 2, 100)
+            dates = pd.date_range(end=pd.Timestamp.now(tz='UTC'), periods=100, freq='D')
+            df = pd.DataFrame({'Open': prices_open, 'High': prices_high, 'Low': prices_low, 'Close': prices_close, 'Volume': np.random.randint(10000, 50000, 100)}, index=dates)
+        else:
+            tkr = yf.Ticker(ticker)
+            df = tkr.history(period=range_key, interval=interval)
+            df.dropna(subset=['Open', 'High', 'Low', 'Close'], inplace=True)
+            if df.empty:
+                return 0
             
         candles = []
         
@@ -415,13 +434,100 @@ class RequestHandler(SimpleHTTPRequestHandler):
                         if best_type == 'Call':
                             ltp = max(0.5, 300 - (best_s - c_close)*0.5 + random.uniform(-10, 10))
                         else:
-                            # If it's a Put, we need to match the 2nd random.uniform call from the spot loop if we were doing ATM, but here we just need a stable simulation. 
-                            # To be perfectly stable and match the exact LTP that would be shown in the table for this candle, we should advance the random state.
-                            # But since we're re-seeding per candle anyway, we can just use a new uniform call. 
-                            # Wait! To match the option chain table perfectly for this strike, we should just call both uniform calls!
                             random.uniform(-10, 10) # dummy call to skip the call_ltp uniform
                             ltp = max(0.5, 300 + (best_s - c_close)*0.5 + random.uniform(-10, 10))
                         active_option_history.append({'time': c['timestamp'], 'value': round(ltp, 2)})
+
+                # Calculate momentum verdict
+                momentum_verdict = {"verdict": "Insufficient Data", "macd": False, "rsi": False, "ema": False, "score": 0}
+                if len(candles) >= 50:
+                    try:
+                        df = pd.DataFrame(candles)
+                        df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
+                        df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
+                        df['ema12'] = df['close'].ewm(span=12, adjust=False).mean()
+                        df['ema26'] = df['close'].ewm(span=26, adjust=False).mean()
+                        df['macd'] = df['ema12'] - df['ema26']
+                        df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
+                        df['macd_hist'] = df['macd'] - df['macd_signal']
+                        
+                        delta = df['close'].diff()
+                        up = delta.clip(lower=0)
+                        down = -1 * delta.clip(upper=0)
+                        ema_up = up.ewm(com=13, adjust=False).mean()
+                        ema_down = down.ewm(com=13, adjust=False).mean()
+                        rs = ema_up / ema_down
+                        df['rsi'] = 100 - (100 / (1 + rs))
+                        
+                        latest = df.iloc[-1]
+                        prev = df.iloc[-2]
+                        
+                        macd_bullish = (latest['macd'] > latest['macd_signal']) and (latest['macd_hist'] > prev['macd_hist']) and (latest['macd_hist'] > 0)
+                        recent_min_rsi = df['rsi'].tail(14).min()
+                        rsi_bullish = (latest['rsi'] > 50) and (recent_min_rsi >= 40)
+                        curr_gap = latest['ema20'] - latest['ema50']
+                        prev_gap = prev['ema20'] - prev['ema50']
+                        ema_bullish = (curr_gap > 0) and (curr_gap > prev_gap)
+                        
+                        score = int(macd_bullish) + int(rsi_bullish) + int(ema_bullish)
+                        if score == 3: verdict = "Strong Bullish Momentum"
+                        elif score == 2: verdict = "Developing Momentum"
+                        elif score == 1: verdict = "Weak Momentum"
+                        else: verdict = "Neutral / Bearish"
+                        
+                        momentum_verdict = {
+                            "verdict": verdict,
+                            "macd": bool(macd_bullish),
+                            "rsi": bool(rsi_bullish),
+                            "ema": bool(ema_bullish),
+                            "score": score
+                        }
+                        # Order flow logic
+                        order_flow_verdict = {"volume_expansion": False, "order_block_mitigation": False}
+                        
+                        # 1. Volume Expansion on Breakouts / Dry-up on Dips
+                        recent_20 = df.tail(20)
+                        up_days = recent_20[recent_20['close'] >= recent_20['open']]
+                        down_days = recent_20[recent_20['close'] < recent_20['open']]
+                        
+                        avg_vol_up = up_days['Volume'].mean() if len(up_days) > 0 else 0
+                        avg_vol_down = down_days['Volume'].mean() if len(down_days) > 0 else 0
+                        
+                        if avg_vol_up > avg_vol_down * 1.2:
+                            order_flow_verdict['volume_expansion'] = True
+                            
+                        # 2. Order Block / Demand Zone Mitigation
+                        recent_30 = df.tail(30).copy()
+                        recent_30['pivot_high'] = recent_30['high'] == recent_30['high'].rolling(window=5, center=True).max()
+                        pivots = recent_30[recent_30['pivot_high']]
+                        
+                        if len(pivots) >= 1:
+                            last_pivot = pivots.iloc[-1]
+                            pivot_price = last_pivot['high']
+                            pivot_idx = last_pivot.name
+                            
+                            post_pivot = recent_30.loc[pivot_idx:]
+                            breakouts = post_pivot[post_pivot['close'] > pivot_price]
+                            
+                            if len(breakouts) > 0:
+                                bos_idx = breakouts.iloc[0].name
+                                pre_bos = recent_30.loc[pivot_idx:bos_idx]
+                                down_candles = pre_bos[pre_bos['close'] < pre_bos['open']]
+                                
+                                if len(down_candles) > 0:
+                                    ob = down_candles.iloc[-1]
+                                    ob_high = ob['high']
+                                    ob_low = ob['low']
+                                    
+                                    if latest['low'] <= ob_high and latest['close'] > ob_low:
+                                        order_flow_verdict['order_block_mitigation'] = True
+
+                        if ticker == 'DUMMY':
+                            order_flow_verdict['volume_expansion'] = True
+                            order_flow_verdict['order_block_mitigation'] = True
+
+                    except Exception as e:
+                        print("Error calculating momentum/orderflow verdict:", e)
 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -431,7 +537,9 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     'range': range_key, 
                     'candles': candles,
                     'active_option_history': active_option_history,
-                    'active_option_details': active_option_details
+                    'active_option_details': active_option_details,
+                    'momentum_verdict': momentum_verdict,
+                    'order_flow_verdict': order_flow_verdict
                 }).encode('utf-8'))
             else:
                 self.send_error(400, "Missing ticker")

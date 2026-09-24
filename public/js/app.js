@@ -17,6 +17,8 @@ let allPatterns = [];
 let filteredPatterns = [];
 let knownPatternKeys = new Set();
 let isFirstLoad = true;
+let currentMomentumVerdict = null;
+let currentOrderFlowVerdict = null;
 
 // TradingView Lightweight Charts instance
 let tvChart = null;
@@ -423,6 +425,8 @@ function refreshCurrentTicker(forceSync = false) {
         allCandles = candleData.candles || [];
         activeOptionHistory = candleData.active_option_history || [];
         activeOptionDetails = candleData.active_option_details || null;
+        currentMomentumVerdict = candleData.momentum_verdict || null;
+        currentOrderFlowVerdict = candleData.order_flow_verdict || null;
         allPatterns = patternData.patterns || [];
         
         let newPatternDetected = null;
@@ -555,10 +559,68 @@ function updateMetricCards() {
         latestCard.style.backgroundColor = latestP.pattern_type === 'Bullish' ? 'rgba(38, 166, 154, 0.15)' : (latestP.pattern_type === 'Bearish' ? 'rgba(239, 83, 80, 0.15)' : 'var(--card-bg)');
         latestCard.style.borderLeft = latestP.pattern_type === 'Bullish' ? '4px solid #26a69a' : (latestP.pattern_type === 'Bearish' ? '4px solid #ef5350' : 'none');
     } else {
-        nameEl.textContent = '--';
-        detailsEl.textContent = 'Waiting for patterns...';
         latestCard.style.backgroundColor = 'var(--card-bg)';
         latestCard.style.borderLeft = 'none';
+    }
+
+    const momentumCard = document.getElementById('momentumCard');
+    const momentumVerdictText = document.getElementById('momentumVerdictText');
+    const momentumDetailsText = document.getElementById('momentumDetailsText');
+
+    if (currentMomentumVerdict) {
+        momentumVerdictText.textContent = currentMomentumVerdict.verdict;
+        momentumDetailsText.textContent = `MACD: ${currentMomentumVerdict.macd ? '🟢' : '🔴'} | RSI: ${currentMomentumVerdict.rsi ? '🟢' : '🔴'} | EMA: ${currentMomentumVerdict.ema ? '🟢' : '🔴'}`;
+        
+        if (currentMomentumVerdict.score === 3) {
+            momentumCard.style.backgroundColor = 'rgba(38, 166, 154, 0.2)';
+            momentumCard.style.borderLeft = '4px solid #26a69a';
+        } else if (currentMomentumVerdict.score === 2) {
+            momentumCard.style.backgroundColor = 'rgba(38, 166, 154, 0.1)';
+            momentumCard.style.borderLeft = '4px solid #81c784';
+        } else if (currentMomentumVerdict.score === 1) {
+            momentumCard.style.backgroundColor = 'rgba(255, 152, 0, 0.1)';
+            momentumCard.style.borderLeft = '4px solid #ff9800';
+        } else {
+            momentumCard.style.backgroundColor = 'rgba(239, 83, 80, 0.1)';
+            momentumCard.style.borderLeft = '4px solid #ef5350';
+        }
+    } else {
+        momentumVerdictText.textContent = '--';
+        momentumDetailsText.textContent = 'MACD: -- | RSI: -- | EMA: --';
+        momentumCard.style.backgroundColor = 'var(--card-bg)';
+        momentumCard.style.borderLeft = '4px solid #8b949e';
+    }
+    
+    const orderFlowCard = document.getElementById('orderFlowCard');
+    const orderFlowVerdictText = document.getElementById('orderFlowVerdictText');
+    const orderFlowDetailsText = document.getElementById('orderFlowDetailsText');
+    
+    if (currentOrderFlowVerdict) {
+        const hasVol = currentOrderFlowVerdict.volume_expansion;
+        const hasOB = currentOrderFlowVerdict.order_block_mitigation;
+        
+        let verdict = "Neutral";
+        if (hasVol && hasOB) {
+            verdict = "Strong Accumulation";
+            orderFlowCard.style.backgroundColor = 'rgba(38, 166, 154, 0.2)';
+            orderFlowCard.style.borderLeft = '4px solid #26a69a';
+        } else if (hasVol || hasOB) {
+            verdict = "Bullish Order Flow";
+            orderFlowCard.style.backgroundColor = 'rgba(38, 166, 154, 0.1)';
+            orderFlowCard.style.borderLeft = '4px solid #81c784';
+        } else {
+            verdict = "No Institutional Buying";
+            orderFlowCard.style.backgroundColor = 'rgba(239, 83, 80, 0.1)';
+            orderFlowCard.style.borderLeft = '4px solid #ef5350';
+        }
+        
+        orderFlowVerdictText.textContent = verdict;
+        orderFlowDetailsText.textContent = `Vol Profile: ${hasVol ? '🟢' : '🔴'} | Demand Zones: ${hasOB ? '🟢' : '🔴'}`;
+    } else {
+        orderFlowVerdictText.textContent = '--';
+        orderFlowDetailsText.textContent = 'Vol Profile: -- | Demand Zones: --';
+        orderFlowCard.style.backgroundColor = 'var(--card-bg)';
+        orderFlowCard.style.borderLeft = '4px solid #8b949e';
     }
 }
 
