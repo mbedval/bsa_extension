@@ -75,6 +75,11 @@
                     <span class="metric-value" id="orderFlowVerdictText" style="font-size: 1.1rem;">--</span>
                     <span class="metric-sub" id="orderFlowDetailsText">Vol Profile: -- | Demand Zones: --</span>
                 </div>
+                <div class="metric-card" id="ewCard" style="transition: all 0.3s ease; border-left: 4px solid #8b949e;">
+                    <span class="metric-title">Elliott Wave Targets</span>
+                    <span class="metric-value" id="ewVerdictText" style="font-size: 1.1rem;">--</span>
+                    <span class="metric-sub" id="ewDetailsText">W3: -- | W5: --</span>
+                </div>
             </section>
 
             <!-- TradingView Charting Section -->
@@ -106,6 +111,44 @@
             </section>
 
             <!-- Option Chain Section (Derivatives Only) -->
+            <!-- Advanced Projections Section (Elliott Wave) -->
+            <section class="projections-section" id="projectionsSection" style="margin-top: 20px; display: flex; gap: 20px;">
+                <div class="projection-panel" style="flex: 1; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); padding: 15px;">
+                    <h3 style="margin-top: 0; color: #58a6ff; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Weekly Swing Targets (Macro)</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Status:</span>
+                            <span id="ewSwingStatus" style="font-weight: bold; color: #8b949e;">Analyzing...</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Wave 3 Target (1.618):</span>
+                            <span id="ewSwingW3" style="font-weight: bold; color: var(--accent-green);">--</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Wave 5 Target (Macro):</span>
+                            <span id="ewSwingW5" style="font-weight: bold; color: var(--accent-green);">--</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="projection-panel" style="flex: 1; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); padding: 15px;">
+                    <h3 style="margin-top: 0; color: #ff7b72; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Daily Intraday Targets (Micro)</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Status:</span>
+                            <span id="ewIntraStatus" style="font-weight: bold; color: #8b949e;">Analyzing...</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Wave 3 Target (1.618):</span>
+                            <span id="ewIntraW3" style="font-weight: bold; color: var(--accent-green);">--</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Wave 5 Target (Micro):</span>
+                            <span id="ewIntraW5" style="font-weight: bold; color: var(--accent-green);">--</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
             <section class="option-chain-section" id="optionChainSection" style="display: none; margin-top: 20px;">
                 <div class="section-header">
                     <h2>Options Chain</h2>

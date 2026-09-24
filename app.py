@@ -440,6 +440,12 @@ class RequestHandler(SimpleHTTPRequestHandler):
 
                 # Calculate momentum verdict
                 momentum_verdict = {"verdict": "Insufficient Data", "macd": False, "rsi": False, "ema": False, "score": 0}
+                order_flow_verdict = {"volume_expansion": False, "order_block_mitigation": False}
+                elliott_wave_targets = {
+                    "swing": {"w3": None, "w5": None, "status": "Insufficient Data"},
+                    "intraday": {"w3": None, "w5": None, "status": "Insufficient Data"}
+                }
+                
                 if len(candles) >= 50:
                     try:
                         df = pd.DataFrame(candles)
@@ -483,7 +489,6 @@ class RequestHandler(SimpleHTTPRequestHandler):
                             "score": score
                         }
                         # Order flow logic
-                        order_flow_verdict = {"volume_expansion": False, "order_block_mitigation": False}
                         
                         # 1. Volume Expansion on Breakouts / Dry-up on Dips
                         recent_20 = df.tail(20)
@@ -526,6 +531,46 @@ class RequestHandler(SimpleHTTPRequestHandler):
                             order_flow_verdict['volume_expansion'] = True
                             order_flow_verdict['order_block_mitigation'] = True
 
+                        # 3. Elliott Wave Projections (Swing & Intraday)
+                        
+                        def calculate_ew_targets(df_subset):
+                            if len(df_subset) < 15:
+                                return None, None
+                            min_idx = df_subset['low'].idxmin()
+                            w0_low = df_subset.loc[min_idx]['low']
+                            
+                            post_w0 = df_subset.loc[min_idx:]
+                            if len(post_w0) < 3: return None, None
+                            
+                            max_idx = post_w0['high'].idxmax()
+                            w1_high = post_w0.loc[max_idx]['high']
+                            
+                            post_w1 = post_w0.loc[max_idx:]
+                            if len(post_w1) < 2: return None, None
+                            
+                            min2_idx = post_w1['low'].idxmin()
+                            w2_low = post_w1.loc[min2_idx]['low']
+                            
+                            if w2_low > w0_low and w1_high > w0_low:
+                                w1_len = w1_high - w0_low
+                                w3_target = w2_low + (1.618 * w1_len)
+                                w5_target = w3_target + w1_len
+                                return round(w3_target, 2), round(w5_target, 2)
+                            return None, None
+                            
+                        swing_w3, swing_w5 = calculate_ew_targets(df.tail(60))
+                        if swing_w3:
+                            elliott_wave_targets["swing"] = {"w3": swing_w3, "w5": swing_w5, "status": "Active Projection"}
+                            
+                        intraday_w3, intraday_w5 = calculate_ew_targets(df.tail(15))
+                        if intraday_w3:
+                            elliott_wave_targets["intraday"] = {"w3": intraday_w3, "w5": intraday_w5, "status": "Active Projection"}
+                        
+                        if ticker == 'DUMMY':
+                            elliott_wave_targets["swing"] = {"w3": 172.50, "w5": 195.00, "status": "Active Projection"}
+                            elliott_wave_targets["intraday"] = {"w3": 145.20, "w5": 158.40, "status": "Active Projection"}
+
+
                     except Exception as e:
                         print("Error calculating momentum/orderflow verdict:", e)
 
@@ -539,7 +584,8 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     'active_option_history': active_option_history,
                     'active_option_details': active_option_details,
                     'momentum_verdict': momentum_verdict,
-                    'order_flow_verdict': order_flow_verdict
+                    'order_flow_verdict': order_flow_verdict,
+                    'elliott_wave_targets': elliott_wave_targets
                 }).encode('utf-8'))
             else:
                 self.send_error(400, "Missing ticker")

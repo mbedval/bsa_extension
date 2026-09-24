@@ -19,6 +19,7 @@ let knownPatternKeys = new Set();
 let isFirstLoad = true;
 let currentMomentumVerdict = null;
 let currentOrderFlowVerdict = null;
+let currentElliottWaveTargets = null;
 
 // TradingView Lightweight Charts instance
 let tvChart = null;
@@ -427,6 +428,7 @@ function refreshCurrentTicker(forceSync = false) {
         activeOptionDetails = candleData.active_option_details || null;
         currentMomentumVerdict = candleData.momentum_verdict || null;
         currentOrderFlowVerdict = candleData.order_flow_verdict || null;
+        currentElliottWaveTargets = candleData.elliott_wave_targets || null;
         allPatterns = patternData.patterns || [];
         
         let newPatternDetected = null;
@@ -621,6 +623,52 @@ function updateMetricCards() {
         orderFlowDetailsText.textContent = 'Vol Profile: -- | Demand Zones: --';
         orderFlowCard.style.backgroundColor = 'var(--card-bg)';
         orderFlowCard.style.borderLeft = '4px solid #8b949e';
+    }
+
+    if (currentElliottWaveTargets) {
+        const swing = currentElliottWaveTargets.swing;
+        const intra = currentElliottWaveTargets.intraday;
+        
+        let verdict = "No clear wave structure";
+        let color = "#8b949e";
+        let details = "W3: -- | W5: --";
+        
+        if (swing.status === "Active Projection") {
+            verdict = "Swing Setup Active";
+            color = "#26a69a";
+            details = `W3: ₹${swing.w3.toFixed(2)} | W5: ₹${swing.w5.toFixed(2)}`;
+        } else if (intra.status === "Active Projection") {
+            verdict = "Intraday Setup Active";
+            color = "#81c784";
+            details = `W3: ₹${intra.w3.toFixed(2)} | W5: ₹${intra.w5.toFixed(2)}`;
+        }
+        
+        document.getElementById('ewVerdictText').textContent = verdict;
+        document.getElementById('ewDetailsText').textContent = details;
+        document.getElementById('ewCard').style.borderLeft = `4px solid ${color}`;
+        document.getElementById('ewCard').style.backgroundColor = (color === "#8b949e") ? 'var(--card-bg)' : `rgba(38, 166, 154, 0.1)`;
+
+        document.getElementById('ewSwingStatus').textContent = swing.status;
+        document.getElementById('ewSwingW3').textContent = swing.w3 ? `₹${swing.w3.toFixed(2)}` : '--';
+        document.getElementById('ewSwingW5').textContent = swing.w5 ? `₹${swing.w5.toFixed(2)}` : '--';
+        
+        document.getElementById('ewIntraStatus').textContent = intra.status;
+        document.getElementById('ewIntraW3').textContent = intra.w3 ? `₹${intra.w3.toFixed(2)}` : '--';
+        document.getElementById('ewIntraW5').textContent = intra.w5 ? `₹${intra.w5.toFixed(2)}` : '--';
+        
+    } else {
+        document.getElementById('ewVerdictText').textContent = 'Analyzing...';
+        document.getElementById('ewDetailsText').textContent = 'W3: -- | W5: --';
+        document.getElementById('ewCard').style.borderLeft = '4px solid #8b949e';
+        document.getElementById('ewCard').style.backgroundColor = 'var(--card-bg)';
+        
+        document.getElementById('ewSwingStatus').textContent = 'Analyzing...';
+        document.getElementById('ewSwingW3').textContent = '--';
+        document.getElementById('ewSwingW5').textContent = '--';
+        
+        document.getElementById('ewIntraStatus').textContent = 'Analyzing...';
+        document.getElementById('ewIntraW3').textContent = '--';
+        document.getElementById('ewIntraW5').textContent = '--';
     }
 }
 
