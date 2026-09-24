@@ -1,9 +1,9 @@
 // 15 Standard Candlestick Patterns
 const PATTERN_NAMES = [
-    'Doji', 'Hammer', 'Inverted Hammer', 'Shooting Star', 'Hanging Man',
-    'Bullish Engulfing', 'Bearish Engulfing', 'Morning Star', 'Evening Star',
-    'Piercing Line', 'Dark Cloud Cover', 'Bullish Harami', 'Bearish Harami',
-    'Marubozu Bullish', 'Marubozu Bearish'
+    'Doji (1)', 'Hammer (3)', 'Inverted Hammer (2)', 'Shooting Star (3)', 'Hanging Man (2)',
+    'Bullish Engulfing (4)', 'Bearish Engulfing (4)', 'Morning Star (5)', 'Evening Star (5)',
+    'Piercing Line (4)', 'Dark Cloud Cover (4)', 'Bullish Harami (2)', 'Bearish Harami (2)',
+    'Marubozu Bullish (4)', 'Marubozu Bearish (4)'
 ];
 
 let selectedPatterns = new Set(PATTERN_NAMES);
@@ -87,6 +87,10 @@ function initTradingViewChart() {
                 },
                 rightPriceScale: {
                     borderColor: '#2a2e39',
+                    scaleMargins: {
+                        top: 0.1,
+                        bottom: 0.25,
+                    },
                 },
                 localization: {
                     timeFormatter: (time) => {

@@ -197,66 +197,66 @@ def evaluate_patterns_range(ticker, range_key, region='india'):
         
         # 1. Doji
         if body <= total_range * 0.1:
-            detected.append((ticker, range_key, ts, dt_str, 'Doji', 'Neutral', c_c, f'Body {round(body,2)} <= 10% of range {round(total_range,2)}'))
+            detected.append((ticker, range_key, ts, dt_str, 'Doji (1)', 'Neutral', c_c, f'Body {round(body,2)} <= 10% of range {round(total_range,2)}'))
             
         # 2. Hammer
         if lower_wick >= 2 * body and upper_wick <= body * 0.5 and is_bullish:
-            detected.append((ticker, range_key, ts, dt_str, 'Hammer', 'Bullish', c_c, f'Lower wick {round(lower_wick,2)} >= 2x body {round(body,2)}'))
+            detected.append((ticker, range_key, ts, dt_str, 'Hammer (3)', 'Bullish', c_c, f'Lower wick {round(lower_wick,2)} >= 2x body {round(body,2)}'))
             
         # 3. Inverted Hammer
         if upper_wick >= 2 * body and lower_wick <= body * 0.5 and is_bullish:
-            detected.append((ticker, range_key, ts, dt_str, 'Inverted Hammer', 'Bullish', c_c, f'Upper wick {round(upper_wick,2)} >= 2x body {round(body,2)}'))
+            detected.append((ticker, range_key, ts, dt_str, 'Inverted Hammer (2)', 'Bullish', c_c, f'Upper wick {round(upper_wick,2)} >= 2x body {round(body,2)}'))
             
         # 4. Shooting Star
         if upper_wick >= 2 * body and lower_wick <= body * 0.5 and is_bearish:
-            detected.append((ticker, range_key, ts, dt_str, 'Shooting Star', 'Bearish', c_c, f'Upper wick {round(upper_wick,2)} >= 2x body {round(body,2)}'))
+            detected.append((ticker, range_key, ts, dt_str, 'Shooting Star (3)', 'Bearish', c_c, f'Upper wick {round(upper_wick,2)} >= 2x body {round(body,2)}'))
             
         # 5. Hanging Man
         if lower_wick >= 2 * body and upper_wick <= body * 0.5 and is_bearish:
-            detected.append((ticker, range_key, ts, dt_str, 'Hanging Man', 'Bearish', c_c, f'Lower wick {round(lower_wick,2)} >= 2x body {round(body,2)}'))
+            detected.append((ticker, range_key, ts, dt_str, 'Hanging Man (2)', 'Bearish', c_c, f'Lower wick {round(lower_wick,2)} >= 2x body {round(body,2)}'))
             
         # 6. Bullish Engulfing
         p_body = abs(p_c - p_o)
         if p_c < p_o and is_bullish and c_c > p_o and c_o < p_c:
-            detected.append((ticker, range_key, ts, dt_str, 'Bullish Engulfing', 'Bullish', c_c, f'Green body ({round(body,2)}) > red body ({round(p_body,2)})'))
+            detected.append((ticker, range_key, ts, dt_str, 'Bullish Engulfing (4)', 'Bullish', c_c, f'Green body ({round(body,2)}) > red body ({round(p_body,2)})'))
             
         # 7. Bearish Engulfing
         if p_c > p_o and is_bearish and c_c < p_o and c_o > p_c:
-            detected.append((ticker, range_key, ts, dt_str, 'Bearish Engulfing', 'Bearish', c_c, f'Red body ({round(body,2)}) > green body ({round(p_body,2)})'))
+            detected.append((ticker, range_key, ts, dt_str, 'Bearish Engulfing (4)', 'Bearish', c_c, f'Red body ({round(body,2)}) > green body ({round(p_body,2)})'))
             
         # 8. Morning Star (3 candles)
         if len(synthetic_rows) > i and i >= 2:
             if p_c < p_o and body <= total_range * 0.3 and c_c > c_o and c_c > p_o + (abs(p_o - p_c) / 2):
-                detected.append((ticker, range_key, ts, dt_str, 'Morning Star', 'Bullish', c_c, f'Close ({round(c_c,2)}) > mid of red body ({round(p_o + (abs(p_o - p_c) / 2),2)})'))
+                detected.append((ticker, range_key, ts, dt_str, 'Morning Star (5)', 'Bullish', c_c, f'Close ({round(c_c,2)}) > mid of red body ({round(p_o + (abs(p_o - p_c) / 2),2)})'))
                 
         # 9. Evening Star
         if len(synthetic_rows) > i and i >= 2:
             if p_c > p_o and body <= total_range * 0.3 and c_c < c_o and c_c < p_o - (abs(p_o - p_c) / 2):
-                detected.append((ticker, range_key, ts, dt_str, 'Evening Star', 'Bearish', c_c, f'Close ({round(c_c,2)}) < mid of green body ({round(p_o - (abs(p_o - p_c) / 2),2)})'))
+                detected.append((ticker, range_key, ts, dt_str, 'Evening Star (5)', 'Bearish', c_c, f'Close ({round(c_c,2)}) < mid of green body ({round(p_o - (abs(p_o - p_c) / 2),2)})'))
                 
         # 10. Piercing Line
         if p_c < p_o and is_bullish and c_o < p_l and c_c > (p_o + p_c)/2 and c_c < p_o:
-            detected.append((ticker, range_key, ts, dt_str, 'Piercing Line', 'Bullish', c_c, f'Bullish close above midpoint of previous red candle'))
+            detected.append((ticker, range_key, ts, dt_str, 'Piercing Line (4)', 'Bullish', c_c, f'Bullish close above midpoint of previous red candle'))
             
         # 11. Dark Cloud Cover
         if p_c > p_o and is_bearish and c_o > p_h and c_c < (p_o + p_c)/2 and c_c > p_o:
-            detected.append((ticker, range_key, ts, dt_str, 'Dark Cloud Cover', 'Bearish', c_c, f'Bearish close below midpoint of previous green candle'))
+            detected.append((ticker, range_key, ts, dt_str, 'Dark Cloud Cover (4)', 'Bearish', c_c, f'Bearish close below midpoint of previous green candle'))
             
         # 12. Bullish Harami
         if p_c < p_o and is_bullish and c_o > p_c and c_c < p_o:
-            detected.append((ticker, range_key, ts, dt_str, 'Bullish Harami', 'Bullish', c_c, f'Small green candle inside previous red candle'))
+            detected.append((ticker, range_key, ts, dt_str, 'Bullish Harami (2)', 'Bullish', c_c, f'Small green candle inside previous red candle'))
             
         # 13. Bearish Harami
         if p_c > p_o and is_bearish and c_o < p_c and c_c > p_o:
-            detected.append((ticker, range_key, ts, dt_str, 'Bearish Harami', 'Bearish', c_c, f'Small red candle inside previous green candle'))
+            detected.append((ticker, range_key, ts, dt_str, 'Bearish Harami (2)', 'Bearish', c_c, f'Small red candle inside previous green candle'))
             
         # 14. Marubozu Bullish
         if is_bullish and upper_wick <= total_range * 0.05 and lower_wick <= total_range * 0.05:
-            detected.append((ticker, range_key, ts, dt_str, 'Marubozu Bullish', 'Bullish', c_c, f'Full body bullish candle'))
+            detected.append((ticker, range_key, ts, dt_str, 'Marubozu Bullish (4)', 'Bullish', c_c, f'Full body bullish candle'))
             
         # 15. Marubozu Bearish
         if is_bearish and upper_wick <= total_range * 0.05 and lower_wick <= total_range * 0.05:
-            detected.append((ticker, range_key, ts, dt_str, 'Marubozu Bearish', 'Bearish', c_c, f'Full body bearish candle'))
+            detected.append((ticker, range_key, ts, dt_str, 'Marubozu Bearish (4)', 'Bearish', c_c, f'Full body bearish candle'))
             
     try:
         conn = sqlite3.connect(get_db_path(region))

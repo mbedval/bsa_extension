@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern Definitions & Theory</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .kb-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .kb-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        
+        .kb-table th, .kb-table td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--card-border);
+        }
+        
+        .kb-table th {
+            background-color: #161b22;
+            font-weight: 600;
+            color: #c9d1d9;
+        }
+        
+        .kb-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .kb-table td {
+            vertical-align: top;
+            line-height: 1.5;
+        }
+
+        .strength-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .s-5 { background: rgba(35, 134, 54, 0.2); color: #3fb950; border: 1px solid #3fb950; }
+        .s-4 { background: rgba(35, 134, 54, 0.1); color: #3fb950; }
+        .s-3 { background: rgba(210, 153, 34, 0.1); color: #d29922; }
+        .s-2 { background: rgba(248, 81, 73, 0.1); color: #f85149; }
+        .s-1 { background: rgba(139, 148, 158, 0.1); color: #8b949e; }
+        
+        .type-bullish { color: #3fb950; font-weight: bold; }
+        .type-bearish { color: #f85149; font-weight: bold; }
+        .type-neutral { color: #8b949e; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-left">
+                <h1>📖 Pattern Definitions & Theory</h1>
+            </div>
+            <div class="header-right" style="display: flex; gap: 10px;">
+                <a href="/summary.html" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; height: 100%;">🏠 Summary</a>
+                <a href="/app.html" class="btn btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; height: 100%;">📈 Detailed Analyzer</a>
+            </div>
+        </header>
+
+        <main class="kb-container">
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                Understanding the underlying psychology of each candlestick pattern is critical for successful trading. 
+                Below is a theoretical guide detailing the strength rankings (1 = Weak, 5 = Extremely Strong), intended outcomes, and potential failure scenarios of all supported patterns.
+            </p>
+            
+            <table class="kb-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%">Pattern Name</th>
+                        <th style="width: 10%">Type</th>
+                        <th style="width: 10%">Strength</th>
+                        <th style="width: 25%">Meaning & Technical Info</th>
+                        <th style="width: 20%">Possible Outcomes</th>
+                        <th style="width: 20%">If Pattern Fails</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Morning Star (5)</strong></td>
+                        <td class="type-bullish">Bullish</td>
+                        <td><span class="strength-indicator s-5">Level 5</span></td>
+                        <td>A robust 3-candle bottom reversal. Forms during a downtrend. Consists of a long red candle, a small-bodied middle candle (indecision), and a strong green candle closing well into the first red body.</td>
+                        <td>High probability of a strong trend reversal to the upside. Often marks the absolute bottom of a swing.</td>
+                        <td>If price breaks below the low of the middle candle, the reversal is invalidated, signaling aggressive downside continuation.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Evening Star (5)</strong></td>
+                        <td class="type-bearish">Bearish</td>
+                        <td><span class="strength-indicator s-5">Level 5</span></td>
+                        <td>A robust 3-candle top reversal. Forms during an uptrend. Consists of a long green candle, a small-bodied middle candle, and a strong red candle closing into the first green body.</td>
+                        <td>High probability of a strong trend reversal to the downside. Resistance is firmly established.</td>
+                        <td>If price breaks above the high of the middle candle, bears have failed, leading to a massive short-squeeze upwards.</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>Bullish Engulfing (4)</strong></td>
+                        <td class="type-bullish">Bullish</td>
+                        <td><span class="strength-indicator s-4">Level 4</span></td>
+                        <td>A 2-candle bottom reversal. A small red candle is completely engulfed by a massive green candle, showing a total shift in momentum from sellers to buyers.</td>
+                        <td>Immediate upside momentum. Buyers have taken full control and will likely push higher.</td>
+                        <td>If the low of the green engulfing candle is broken, the bulls are trapped and a harsh selloff will follow.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Bearish Engulfing (4)</strong></td>
+                        <td class="type-bearish">Bearish</td>
+                        <td><span class="strength-indicator s-4">Level 4</span></td>
+                        <td>A 2-candle top reversal. A small green candle is entirely engulfed by a massive red candle, indicating sellers have completely overwhelmed buyers.</td>
+                        <td>Immediate downside momentum. Sellers are heavily defending resistance.</td>
+                        <td>If the high of the red engulfing candle is breached, resistance breaks, usually causing a violent leg up.</td>
+                    </tr>
+                    
+                    <tr>
+                        <td><strong>Piercing Line (4)</strong></td>
+                        <td class="type-bullish">Bullish</td>
+                        <td><span class="strength-indicator s-4">Level 4</span></td>
+                        <td>A 2-candle bottom reversal. A long red candle is followed by a green candle that gaps down but closes above the 50% midpoint of the red candle.</td>
+                        <td>Strong bullish reversal, though slightly less aggressive than an engulfing.</td>
+                        <td>Failure occurs if price drops below the green candle's low, signaling bears are still in total control.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Dark Cloud Cover (4)</strong></td>
+                        <td class="type-bearish">Bearish</td>
+                        <td><span class="strength-indicator s-4">Level 4</span></td>
+                        <td>A 2-candle top reversal. A long green candle is followed by a red candle that gaps up but closes below the 50% midpoint of the green candle.</td>
+                        <td>Strong bearish reversal, confirming overhead supply and rejection of higher prices.</td>
+                        <td>If buyers push price above the high of the red candle, the bearish thesis is voided.</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Marubozu Bullish (4)</strong></td>
+                        <td class="type-bullish">Bullish</td>
+                        <td><span class="strength-indicator s-4">Level 4</span></td>
+                        <td>A 1-candle momentum pattern. A massive green body with virtually no upper or lower wicks. Buyers controlled the price from open to close.</td>
+                        <td>Extremely strong continuation or breakout signal. Momentum is firmly upwards.</td>
+                        <td>If the next candle immediately reverses and breaks the low, it signifies a devastating "bull trap".</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Marubozu Bearish (4)</strong></td>
+                        <td class="type-bearish">Bearish</td>
+                        <td><span class="strength-indicator s-4">Level 4</span></td>
+                        <td>A 1-candle momentum pattern. A massive red body with virtually no wicks. Sellers controlled the price entirely.</td>
+                        <td>Extremely strong continuation or breakdown signal. Momentum is firmly downwards.</td>
+                        <td>If the next candle immediately rallies above the high, it indicates a severe "bear trap".</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Hammer (3)</strong></td>
+                        <td class="type-bullish">Bullish</td>
+                        <td><span class="strength-indicator s-3">Level 3</span></td>
+                        <td>A 1-candle reversal. Small body with a long lower wick (at least 2x the body). Shows aggressive buying rejection at lower prices.</td>
+                        <td>Moderate upside potential. Often requires the next candle to close higher for confirmation.</td>
+                        <td>If the lower wick is broken, it shows buyers have given up, leading to a steep drop.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Shooting Star (3)</strong></td>
+                        <td class="type-bearish">Bearish</td>
+                        <td><span class="strength-indicator s-3">Level 3</span></td>
+                        <td>A 1-candle reversal. Small body with a long upper wick. Shows aggressive selling rejection at higher prices.</td>
+                        <td>Moderate downside potential. Often requires the next candle to close lower for confirmation.</td>
+                        <td>If the upper wick is broken, sellers are exhausted and price will surge higher.</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Bullish Harami (2)</strong></td>
+                        <td class="type-bullish">Bullish</td>
+                        <td><span class="strength-indicator s-2">Level 2</span></td>
+                        <td>A 2-candle "inside bar" pattern. A large red candle followed by a small green candle completely contained within the red body.</td>
+                        <td>Indicates selling pressure has paused. Weak reversal signal; acts more as an early warning.</td>
+                        <td>If price breaks the low of the first red candle, the downtrend effortlessly continues.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Bearish Harami (2)</strong></td>
+                        <td class="type-bearish">Bearish</td>
+                        <td><span class="strength-indicator s-2">Level 2</span></td>
+                        <td>A 2-candle "inside bar" pattern. A large green candle followed by a small red candle completely contained within the green body.</td>
+                        <td>Indicates buying pressure has paused. Weak reversal signal; requires severe confirmation.</td>
+                        <td>If price breaks the high of the first green candle, the uptrend easily resumes.</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Inverted Hammer (2)</strong></td>
+                        <td class="type-bullish">Bullish</td>
+                        <td><span class="strength-indicator s-2">Level 2</span></td>
+                        <td>A 1-candle reversal found at the bottom of a downtrend. Small body with a long upper wick.</td>
+                        <td>Weak reversal. Indicates buyers attempted to step in but were pushed back down. Requires a strong green candle next.</td>
+                        <td>Very prone to failure if the next candle is red, resulting in immediate continuation of the downtrend.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Hanging Man (2)</strong></td>
+                        <td class="type-bearish">Bearish</td>
+                        <td><span class="strength-indicator s-2">Level 2</span></td>
+                        <td>A 1-candle reversal found at the top of an uptrend. Small body with a long lower wick.</td>
+                        <td>Weak reversal. Indicates sellers tried to push price down but buyers rescued it. Only bearish if the *next* candle drops.</td>
+                        <td>Highly prone to failure. If the next candle is green, the uptrend continues strongly.</td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Doji (1)</strong></td>
+                        <td class="type-neutral">Neutral</td>
+                        <td><span class="strength-indicator s-1">Level 1</span></td>
+                        <td>A 1-candle pattern where the open and close are virtually identical, creating a cross shape.</td>
+                        <td>Pure indecision. Buyers and sellers are in perfect equilibrium. The trend will pause.</td>
+                        <td>A Doji cannot "fail" as it has no inherent direction, but a breakout of its high/low dictates the next move.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </main>
+    </div>
+</body>
+</html>
