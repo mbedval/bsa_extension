@@ -3,7 +3,7 @@ const PATTERN_NAMES = [
     'Doji (1)', 'Hammer (3)', 'Inverted Hammer (2)', 'Shooting Star (3)', 'Hanging Man (2)',
     'Bullish Engulfing (4)', 'Bearish Engulfing (4)', 'Morning Star (5)', 'Evening Star (5)',
     'Piercing Line (4)', 'Dark Cloud Cover (4)', 'Bullish Harami (2)', 'Bearish Harami (2)',
-    'Marubozu Bullish (4)', 'Marubozu Bearish (4)'
+    'Marubozu Bullish (4)', 'Marubozu Bearish (4)', 'HHHL (3)', 'Cup and Handle (15)'
 ];
 
 let selectedPatterns = new Set(PATTERN_NAMES);
@@ -11,6 +11,8 @@ let currentTicker = 'NAUKRI.NS';
 let currentRange = '1mo';
 let region = new URLSearchParams(window.location.search).get('region') || 'india';
 let allCandles = [];
+let activeOptionHistory = [];
+let activeOptionDetails = null;
 let allPatterns = [];
 let filteredPatterns = [];
 let knownPatternKeys = new Set();
@@ -20,6 +22,7 @@ let isFirstLoad = true;
 let tvChart = null;
 let candlestickSeries = null;
 let volumeSeries = null;
+let activeOptionSeries = null;
 
 // Pagination State
 let currentPage = 1;
@@ -58,9 +61,48 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Auto sync every 1 minute
     setInterval(() => {
-        refreshCurrentTicker(true);
+        if (isMarketOpen()) {
+            refreshCurrentTicker(true);
+        }
     }, 60000);
 });
+
+function isMarketOpen() {
+    const now = new Date();
+    
+    // Check if it's weekend (0 is Sunday, 6 is Saturday)
+    const day = now.getUTCDay();
+    if (day === 0 || day === 6) {
+        return false;
+    }
+    
+    if (region === 'india' || region === 'india_deriv') {
+        // Indian Market Hours: 9:15 AM to 3:30 PM IST (UTC + 5:30)
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        const istTime = new Date(now.getTime() + istOffset);
+        
+        const hours = istTime.getUTCHours();
+        const minutes = istTime.getUTCMinutes();
+        
+        const timeInMinutes = hours * 60 + minutes;
+        const openTime = 9 * 60 + 15;
+        const closeTime = 15 * 60 + 30;
+        
+        return timeInMinutes >= openTime && timeInMinutes <= closeTime;
+    } else if (region === 'us') {
+        // US Market Hours approximate bound: 9:30 AM to 4:00 PM ET
+        // Using UTC 13:30 to 21:00 to safely cover both EST and EDT
+        const hours = now.getUTCHours();
+        const minutes = now.getUTCMinutes();
+        const timeInMinutes = hours * 60 + minutes;
+        
+        const openTime = 13 * 60 + 30;
+        const closeTime = 21 * 60;
+        return timeInMinutes >= openTime && timeInMinutes <= closeTime;
+    }
+    
+    return true; // Default to always open for unknown regions
+}
 
 function initTradingViewChart() {
     const container = document.getElementById('tvChartContainer');
@@ -151,6 +193,12 @@ function initTradingViewChart() {
                 },
             });
 
+            activeOptionSeries = tvChart.addLineSeries({
+                color: '#2196F3',
+                lineWidth: 2,
+                title: 'Most Active Option'
+            });
+
             const ro = new ResizeObserver(entries => {
                 for (let entry of entries) {
                     if (tvChart && entry.contentRect.width > 0) {
@@ -215,6 +263,30 @@ function setupEventListeners() {
     document.getElementById('removeTickerBtn').addEventListener('click', removeCurrentTicker);
     document.getElementById('cleanDbBtn').addEventListener('click', cleanDatabase);
 
+    // Pattern Select All/None
+    const selectAllBtn = document.getElementById('selectAllPatternsBtn');
+    const selectNoneBtn = document.getElementById('selectNonePatternsBtn');
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', () => {
+            document.querySelectorAll('#patternCheckboxesGrid input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+            selectedPatterns = new Set(PATTERN_NAMES);
+            filterAndRenderTable();
+            renderTradingViewChart();
+        });
+    }
+    if (selectNoneBtn) {
+        selectNoneBtn.addEventListener('click', () => {
+            document.querySelectorAll('#patternCheckboxesGrid input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            selectedPatterns.clear();
+            filterAndRenderTable();
+            renderTradingViewChart();
+        });
+    }
+
     document.getElementById('togglePatternMarkers').addEventListener('change', renderTradingViewChart);
     
     document.getElementById('chartModeSelect').addEventListener('change', (e) => {
@@ -266,15 +338,17 @@ function addTicker() {
     if (!ticker) return;
 
     if (region === 'india_deriv') {
-        // Basic list of valid indices and top F&O stocks
-        const validDerivs = [
-            '^NSEI', '^BSESN', '^NSEBANK', '^CNXIT', 'RELIANCE.NS', 'HDFCBANK.NS', 
-            'INFY.NS', 'TCS.NS', 'ICICIBANK.NS', 'SBIN.NS', 'BAJFINANCE.NS', 
-            'BHARTIARTL.NS', 'KOTAKBANK.NS', 'ITC.NS', 'LT.NS', 'AXISBANK.NS', 
-            'ASIANPAINT.NS', 'MARUTI.NS', 'HINDUNILVR.NS', 'BSE.NS', 'TATAMOTORS.NS'
-        ];
-        if (!validDerivs.includes(ticker)) {
-            alert(`"${ticker}" is not a recognized NSE Derivative or Index in our database. Please use a valid F&O ticker like ^NSEI, RELIANCE.NS, etc.`);
+        if (ticker === 'NSEI' || ticker === 'NIFTY') {
+            input.value = '^NSEI';
+            return addTicker(); // recursive call with updated value
+        }
+        if (ticker === 'NSEBANK' || ticker === 'BANKNIFTY') {
+            input.value = '^NSEBANK';
+            return addTicker(); // recursive call with updated value
+        }
+        
+        if (!ticker.endsWith('.NS') && !ticker.startsWith('^')) {
+            alert(`"${ticker}" is not recognized as a valid NSE derivative format. Please use a ticker ending in .NS (e.g. RELIANCE.NS) or an index starting with ^ (e.g. ^NSEI).`);
             return;
         }
     }
@@ -347,6 +421,8 @@ function refreshCurrentTicker(forceSync = false) {
         fetch(`/api/patterns?ticker=${encodeURIComponent(currentTicker)}&range=${currentRange}&region=${region}`).then(r => r.json())
     ]).then(([candleData, patternData]) => {
         allCandles = candleData.candles || [];
+        activeOptionHistory = candleData.active_option_history || [];
+        activeOptionDetails = candleData.active_option_details || null;
         allPatterns = patternData.patterns || [];
         
         let newPatternDetected = null;
@@ -409,12 +485,16 @@ function fetchOptionChain() {
             
             data.options.forEach(opt => {
                 const tr = document.createElement('tr');
+                
+                const callStyle = opt.is_most_active_call ? 'background: rgba(255, 215, 0, 0.2); border-left: 3px solid gold;' : 'background: rgba(35, 134, 54, 0.05);';
+                const putStyle = opt.is_most_active_put ? 'background: rgba(255, 215, 0, 0.2); border-right: 3px solid gold;' : 'background: rgba(218, 54, 51, 0.05);';
+                
                 tr.innerHTML = `
-                    <td style="text-align: right; background: rgba(35, 134, 54, 0.05);">${opt.call_oi.toLocaleString()}</td>
-                    <td style="text-align: right; background: rgba(35, 134, 54, 0.05); font-weight: bold; color: #3fb950;">₹${opt.call_ltp.toFixed(2)}</td>
+                    <td style="text-align: right; ${callStyle}">${opt.call_oi.toLocaleString()} ${opt.is_most_active_call ? '🔥' : ''}</td>
+                    <td style="text-align: right; ${callStyle} font-weight: bold; color: #3fb950;">₹${opt.call_ltp.toFixed(2)}</td>
                     <td style="text-align: center; background: rgba(48, 54, 61, 0.5); font-weight: bold; color: #fff;">${opt.strike}</td>
-                    <td style="text-align: left; background: rgba(218, 54, 51, 0.05); font-weight: bold; color: #f85149;">₹${opt.put_ltp.toFixed(2)}</td>
-                    <td style="text-align: left; background: rgba(218, 54, 51, 0.05);">${opt.put_oi.toLocaleString()}</td>
+                    <td style="text-align: left; ${putStyle} font-weight: bold; color: #f85149;">₹${opt.put_ltp.toFixed(2)}</td>
+                    <td style="text-align: left; ${putStyle}">${opt.is_most_active_put ? '🔥' : ''} ${opt.put_oi.toLocaleString()}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -490,6 +570,7 @@ function renderTradingViewChart() {
     if (allCandles.length === 0) {
         candlestickSeries.setData([]);
         volumeSeries.setData([]);
+        if (activeOptionSeries) activeOptionSeries.setData([]);
         return;
     }
     // Deduplicate and sort 1-hour candles
@@ -535,9 +616,32 @@ function renderTradingViewChart() {
         }
     });
 
-    candlestickSeries.setData(tvData);
-    volumeSeries.setData(volData);
-    candlestickSeries.setMarkers(markers);
+    if (region === 'india_deriv') {
+        candlestickSeries.setData([]);
+        volumeSeries.setData([]);
+        
+        // Deduplicate and sort active option lines
+        const optMap = new Map();
+        activeOptionHistory.forEach(c => optMap.set(c.time, c));
+        const sortedOpt = Array.from(optMap.values()).sort((a, b) => a.time - b.time);
+        
+        if (activeOptionSeries) {
+            activeOptionSeries.setData(sortedOpt);
+            
+            if (activeOptionDetails) {
+                const optColor = activeOptionDetails.type === 'Call' ? '#3fb950' : '#f85149';
+                activeOptionSeries.applyOptions({
+                    color: optColor,
+                    title: `Active ${activeOptionDetails.type} (${activeOptionDetails.strike})`
+                });
+            }
+        }
+    } else {
+        candlestickSeries.setData(tvData);
+        volumeSeries.setData(volData);
+        candlestickSeries.setMarkers(markers);
+        if (activeOptionSeries) activeOptionSeries.setData([]);
+    }
 
     setTimeout(() => {
         if (tvChart) {

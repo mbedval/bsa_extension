@@ -258,6 +258,24 @@ def evaluate_patterns_range(ticker, range_key, region='india'):
         if is_bearish and upper_wick <= total_range * 0.05 and lower_wick <= total_range * 0.05:
             detected.append((ticker, range_key, ts, dt_str, 'Marubozu Bearish (4)', 'Bearish', c_c, f'Full body bearish candle'))
             
+        # 16. HHHL (Higher High Higher Low)
+        if c_h > p_h and p_h > prev2[3] and c_l > p_l and p_l > prev2[4]:
+            detected.append((ticker, range_key, ts, dt_str, 'HHHL (3)', 'Bullish', c_c, f'3 consecutive higher highs and higher lows'))
+            
+        # 17. Cup and Handle
+        if i >= 15:
+            window = synthetic_rows[i-15:i+1]
+            left_lip_max = max(r[3] for r in window[0:4])
+            bottom_min = min(r[4] for r in window[4:10])
+            right_lip_max = max(r[3] for r in window[11:13])
+            handle_min = min(r[4] for r in window[13:15])
+            
+            if abs(left_lip_max - right_lip_max) / right_lip_max < 0.05:
+                if bottom_min < right_lip_max * 0.95:
+                    if handle_min > bottom_min and handle_min < right_lip_max:
+                        if c_c > right_lip_max:
+                            detected.append((ticker, range_key, ts, dt_str, 'Cup and Handle (15)', 'Bullish', c_c, f'Cup bottom at {round(bottom_min,2)}, breakout above {round(right_lip_max,2)}'))
+            
     try:
         conn = sqlite3.connect(get_db_path(region))
         cursor = conn.cursor()
@@ -362,11 +380,59 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 conn.close()
                 
                 candles = [{'timestamp': r[0], 'datetime': r[1], 'open': r[2], 'high': r[3], 'low': r[4], 'close': r[5], 'volume': r[6]} for r in rows]
-                
+
+                active_option_history = []
+                active_option_details = {}
+                if region == 'india_deriv' and len(candles) > 0:
+                    import random
+                    latest_close = candles[-1]['close'] if candles[-1]['close'] is not None else 24000.0
+                    
+                    random.seed(latest_close)
+                    base = round(latest_close / 50) * 50
+                    strikes = [base + i*50 for i in range(-5, 6)]
+                    max_oi = -1
+                    best_s = base
+                    best_type = 'Call'
+                    for s in strikes:
+                        random.uniform(-10, 10)
+                        random.uniform(-10, 10)
+                        c_oi = random.randint(1000, 150000)
+                        p_oi = random.randint(1000, 150000)
+                        if c_oi > max_oi:
+                            max_oi = c_oi
+                            best_s = s
+                            best_type = 'Call'
+                        if p_oi > max_oi:
+                            max_oi = p_oi
+                            best_s = s
+                            best_type = 'Put'
+                    
+                    active_option_details = {'strike': best_s, 'type': best_type, 'oi': max_oi}
+                    
+                    for c in candles:
+                        c_close = c['close'] if c['close'] is not None else base
+                        random.seed(c_close)
+                        if best_type == 'Call':
+                            ltp = max(0.5, 300 - (best_s - c_close)*0.5 + random.uniform(-10, 10))
+                        else:
+                            # If it's a Put, we need to match the 2nd random.uniform call from the spot loop if we were doing ATM, but here we just need a stable simulation. 
+                            # To be perfectly stable and match the exact LTP that would be shown in the table for this candle, we should advance the random state.
+                            # But since we're re-seeding per candle anyway, we can just use a new uniform call. 
+                            # Wait! To match the option chain table perfectly for this strike, we should just call both uniform calls!
+                            random.uniform(-10, 10) # dummy call to skip the call_ltp uniform
+                            ltp = max(0.5, 300 + (best_s - c_close)*0.5 + random.uniform(-10, 10))
+                        active_option_history.append({'time': c['timestamp'], 'value': round(ltp, 2)})
+
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({'ticker': ticker, 'range': range_key, 'candles': candles}).encode('utf-8'))
+                self.wfile.write(json.dumps({
+                    'ticker': ticker, 
+                    'range': range_key, 
+                    'candles': candles,
+                    'active_option_history': active_option_history,
+                    'active_option_details': active_option_details
+                }).encode('utf-8'))
             else:
                 self.send_error(400, "Missing ticker")
                 
@@ -467,13 +533,14 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({'region': region, 'summary': summary}).encode('utf-8'))
             
         elif path == '/api/options':
+            ticker = query.get('ticker', [''])[0]
             conn = sqlite3.connect(get_db_path(region))
             cursor = conn.cursor()
             cursor.execute("SELECT close FROM candles_range WHERE ticker=? ORDER BY timestamp DESC LIMIT 1", (ticker,))
             row = cursor.fetchone()
             conn.close()
             
-            spot = row[0] if row else 24000.0  # Fallback
+            spot = row[0] if (row and row[0] is not None) else 24000.0  # Fallback
             
             import random
             random.seed(spot) # Stable random for demonstration
@@ -490,6 +557,21 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     'put_ltp': round(put_ltp, 2),
                     'put_oi': random.randint(1000, 150000)
                 })
+
+            best_option = None
+            max_oi = -1
+            for opt in options:
+                if opt['call_oi'] > max_oi:
+                    max_oi = opt['call_oi']
+                    best_option = opt
+                    best_type = 'Call'
+                if opt['put_oi'] > max_oi:
+                    max_oi = opt['put_oi']
+                    best_option = opt
+                    best_type = 'Put'
+            
+            best_option['is_most_active_call'] = (best_type == 'Call')
+            best_option['is_most_active_put'] = (best_type == 'Put')
                 
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
