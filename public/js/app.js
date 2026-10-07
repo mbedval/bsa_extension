@@ -459,10 +459,39 @@ function refreshCurrentTicker(forceSync = false) {
         }
         
         filterAndRenderTable();
-        fetchOptionChain();
+        startOptionChainPolling();
     }).catch(err => {
         console.error('Error refreshing current ticker:', err);
     });
+}
+
+let optionChainInterval = null;
+
+function startOptionChainPolling() {
+    if (optionChainInterval) {
+        clearInterval(optionChainInterval);
+        optionChainInterval = null;
+    }
+    
+    if (region === 'india_deriv') {
+        fetchOptionChain();
+        if (isMarketOpen()) {
+            optionChainInterval = setInterval(() => {
+                if (isMarketOpen()) {
+                    fetchOptionChain();
+                } else {
+                    fetchOptionChain(); // fetch final static snapshot
+                    if (optionChainInterval) {
+                        clearInterval(optionChainInterval);
+                        optionChainInterval = null;
+                    }
+                }
+            }, 5000);
+        }
+    } else {
+        const sec = document.getElementById('optionChainSection');
+        if (sec) sec.style.display = 'none';
+    }
 }
 
 function fetchOptionChain() {
@@ -480,6 +509,22 @@ function fetchOptionChain() {
         .then(data => {
             document.getElementById('optionSpotInfo').textContent = `Spot Price: ₹${data.spot}`;
             document.getElementById('optionChainNote').textContent = data.note || '';
+            
+            const badge = document.getElementById('optionStatusBadge');
+            if (badge) {
+                const isOpen = (data.is_market_open !== undefined) ? data.is_market_open : isMarketOpen();
+                if (isOpen) {
+                    badge.style.background = 'rgba(46, 160, 67, 0.15)';
+                    badge.style.color = '#3fb950';
+                    badge.style.borderColor = 'rgba(46, 160, 67, 0.4)';
+                    badge.innerHTML = `<span style="width: 7px; height: 7px; background-color: #3fb950; border-radius: 50%; display: inline-block;"></span> Live 5s Update`;
+                } else {
+                    badge.style.background = 'rgba(110, 118, 129, 0.15)';
+                    badge.style.color = '#8b949e';
+                    badge.style.borderColor = 'rgba(110, 118, 129, 0.4)';
+                    badge.innerHTML = `<span style="width: 7px; height: 7px; background-color: #8b949e; border-radius: 50%; display: inline-block;"></span> Market Closed (Static)`;
+                }
+            }
             
             const tbody = document.getElementById('optionsTableBody');
             tbody.innerHTML = '';
@@ -922,23 +967,45 @@ function exportHDScreenshot() {
 
 function triggerNotification(pattern) {
     const box = document.getElementById('patternBox');
+    if (box) {
+        // Remove old classes just in case
+        box.classList.remove('notify-green', 'notify-red');
+        
+        // Add appropriate class
+        const notifyClass = (pattern.pattern_type === 'Bullish' || pattern.category === 'BULLISH') ? 'notify-green' : 'notify-red';
+        box.classList.add(notifyClass);
+        
+        // Stop highlighting after 1 minute (60000 ms)
+        setTimeout(() => {
+            box.classList.remove(notifyClass);
+        }, 60000);
+    }
     
-    // Remove old classes just in case
-    box.classList.remove('notify-green', 'notify-red');
-    
-    // Add appropriate class
-    const notifyClass = pattern.pattern_type === 'Bullish' ? 'notify-green' : 'notify-red';
-    box.classList.add(notifyClass);
-    
-    // Stop highlighting after 1 minute (60000 ms)
-    setTimeout(() => {
-        box.classList.remove(notifyClass);
-    }, 60000);
-    
-    // Browser System Notification
-    if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("New Pattern Detected", {
-            body: `${pattern.pattern_type} ${pattern.pattern_name} detected on ${pattern.ticker} at ${pattern.datetime}`
+    const notifTicker = pattern.ticker || (typeof currentTicker !== 'undefined' ? currentTicker : '') || '';
+    const notifTitle = notifTicker ? `BSA Extension : ${notifTicker}` : `BSA Extension`;
+    const timeStr = pattern.datetime || pattern.trigger_time || '';
+    const pType = pattern.pattern_type || pattern.category || 'Signal';
+    const pName = pattern.pattern_name || 'Pattern';
+    const notifBody = `${pType} ${pName} detected on ${notifTicker || 'Stock'}${timeStr ? ' at ' + timeStr : ''}`;
+
+    // Prefer Chrome Extension Notification API (does not print site domain/origin like localhost:8001)
+    if (typeof chrome !== 'undefined' && chrome.notifications && chrome.notifications.create) {
+        chrome.notifications.create(`pat_${Date.now()}`, {
+            type: 'basic',
+            iconUrl: 'icons/icon-48.png',
+            title: notifTitle,
+            message: notifBody,
+            priority: 2
+        });
+    } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({
+            type: 'TRIGGER_NOTIF',
+            title: notifTitle,
+            message: notifBody
+        });
+    } else if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(notifTitle, {
+            body: notifBody
         });
     }
 }

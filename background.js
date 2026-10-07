@@ -294,13 +294,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             // ── System-level desktop notification ──────────────────────────
             const direction = pattern.category === 'BULLISH' ? '🟢' : pattern.category === 'BEARISH' ? '🔴' : '🟡';
-            const notifTitle   = `${direction} ${pattern.pattern_name} — ${pattern.ticker}`;
+            const notifTicker = pattern.ticker || 'Stock';
+            const notifTitle   = `BSA Extension : ${notifTicker}`;
             const notifMessage = [
-              `Timeframe: ${pattern.timeframe}`,
-              `Time: ${pattern.trigger_time}`,
-              `Price: ₹${pattern.close}  ${pattern.change_pct}`,
-              `Signal: ${pattern.strength_ratio}`
-            ].join('\n');
+              `${direction} ${pattern.pattern_name} (${pattern.category || ''})`,
+              `Timeframe: ${pattern.timeframe || '1D'}`,
+              `Time: ${pattern.trigger_time || ''}`,
+              `Price: ₹${pattern.close || ''}  ${pattern.change_pct || ''}`,
+              `Signal: ${pattern.strength_ratio || ''}`
+            ].filter(Boolean).join('\n');
 
             try {
               chrome.notifications.create(`pat_${Date.now()}`, {
@@ -346,6 +348,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ status: 'test_sent' });
       } catch (err) {
         console.error('[Pattern Radar] Test notification error:', err);
+        sendResponse({ status: 'error', error: String(err) });
+      }
+    }
+
+    // ── TRIGGER_NOTIF: trigger Chrome extension notification ──────────────────
+    else if (message.type === 'TRIGGER_NOTIF') {
+      try {
+        chrome.notifications.create(`pat_${Date.now()}`, {
+          type:    'basic',
+          iconUrl: 'icons/icon-48.png',
+          title:   message.title || 'BSA Extension',
+          message: message.message || '',
+          priority: 2
+        });
+        sendResponse({ status: 'sent' });
+      } catch (err) {
+        console.error('[Pattern Radar] Trigger notification error:', err);
         sendResponse({ status: 'error', error: String(err) });
       }
     }

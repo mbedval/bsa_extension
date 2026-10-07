@@ -21,6 +21,61 @@ def get_db_path(region):
         return os.path.join(base_dir, 'ind_deriv_database.sqlite')
     return os.path.join(base_dir, 'ind_database.sqlite')
 
+def get_strike_step(ticker, spot):
+    """Calculate standard NSE/BSE strike price steps for indices and equity options based on spot price."""
+    if spot is None or spot <= 0:
+        spot = 24000.0
+    t_upper = str(ticker).upper()
+    # Index strike steps
+    if '^NSEBANK' in t_upper or 'BANKNIFTY' in t_upper or '^BSESN' in t_upper or 'SENSEX' in t_upper:
+        return 100
+    if '^NSEI' in t_upper or 'NIFTY' in t_upper or 'FINNIFTY' in t_upper or 'MIDCPNIFTY' in t_upper:
+        return 50
+
+    # NSE Stock Option strike price slabs
+    if spot < 50:
+        return 2.5
+    elif spot < 100:
+        return 5
+    elif spot < 250:
+        return 10
+    elif spot < 500:
+        return 10
+    elif spot < 1000:
+        return 25
+    elif spot < 2500:
+        return 50
+    elif spot < 5000:
+        return 100
+    elif spot < 10000:
+        return 250
+    else:
+        return 500
+
+def is_market_open(region='india'):
+    """Check if market session is currently open (IST 09:15-15:30 Mon-Fri for India)."""
+    tz_name = 'America/New_York' if region == 'us' else 'Asia/Kolkata'
+    try:
+        tz = ZoneInfo(tz_name)
+    except TypeError:
+        tz = ZoneInfo.timezone(tz_name)
+        
+    now = datetime.now(tz)
+    if now.weekday() in [5, 6]:
+        return False
+        
+    if region in ['india', 'india_deriv']:
+        total_mins = now.hour * 60 + now.minute
+        open_time = 9 * 60 + 15   # 09:15 IST
+        close_time = 15 * 60 + 30 # 15:30 IST
+        return open_time <= total_mins <= close_time
+    elif region == 'us':
+        total_mins = now.hour * 60 + now.minute
+        open_time = 9 * 60 + 30   # 09:30 ET
+        close_time = 16 * 60      # 16:00 ET
+        return open_time <= total_mins <= close_time
+    return True
+
 def init_db(region='india'):
     conn = sqlite3.connect(get_db_path(region))
     cursor = conn.cursor()
@@ -406,9 +461,10 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     import random
                     latest_close = candles[-1]['close'] if candles[-1]['close'] is not None else 24000.0
                     
-                    random.seed(latest_close)
-                    base = round(latest_close / 50) * 50
-                    strikes = [base + i*50 for i in range(-5, 6)]
+                    random.seed(int(latest_close * 100))
+                    step = get_strike_step(ticker, latest_close)
+                    base = round(latest_close / step) * step
+                    strikes = [base + i*step for i in range(-5, 6)]
                     max_oi = -1
                     best_s = base
                     best_type = 'Call'
@@ -426,16 +482,21 @@ class RequestHandler(SimpleHTTPRequestHandler):
                             best_s = s
                             best_type = 'Put'
                     
-                    active_option_details = {'strike': best_s, 'type': best_type, 'oi': max_oi}
+                    active_option_details = {'strike': best_s if step >= 1 else round(best_s, 1), 'type': best_type, 'oi': max_oi}
                     
+                    atm_time_val = max(5.0, latest_close * 0.015)
                     for c in candles:
                         c_close = c['close'] if c['close'] is not None else base
-                        random.seed(c_close)
+                        random.seed(int(c_close * 100))
                         if best_type == 'Call':
-                            ltp = max(0.5, 300 - (best_s - c_close)*0.5 + random.uniform(-10, 10))
+                            call_intrinsic = max(0.0, c_close - best_s)
+                            call_time_val = atm_time_val * math.exp(-abs(best_s - c_close) / (3.0 * step))
+                            ltp = max(0.5, call_intrinsic + call_time_val + random.uniform(-0.05 * atm_time_val, 0.05 * atm_time_val))
                         else:
-                            random.uniform(-10, 10) # dummy call to skip the call_ltp uniform
-                            ltp = max(0.5, 300 + (best_s - c_close)*0.5 + random.uniform(-10, 10))
+                            random.uniform(-10, 10) # dummy call to skip
+                            put_intrinsic = max(0.0, best_s - c_close)
+                            put_time_val = atm_time_val * math.exp(-abs(best_s - c_close) / (3.0 * step))
+                            ltp = max(0.5, put_intrinsic + put_time_val + random.uniform(-0.05 * atm_time_val, 0.05 * atm_time_val))
                         active_option_history.append({'time': c['timestamp'], 'value': round(ltp, 2)})
 
                 # Calculate momentum verdict
@@ -655,7 +716,6 @@ class RequestHandler(SimpleHTTPRequestHandler):
             # 3. Fetch live prices via yfinance for all watchlist tickers simultaneously
             live_prices = {}
             try:
-                import yfinance as yf
                 data = yf.download(watchlist_tickers, period='1d', interval='1m', progress=False)
                 if not data.empty and 'Close' in data:
                     live_prices = data['Close'].iloc[-1].to_dict()
@@ -688,24 +748,50 @@ class RequestHandler(SimpleHTTPRequestHandler):
             
         elif path == '/api/options':
             ticker = query.get('ticker', [''])[0]
-            conn = sqlite3.connect(get_db_path(region))
-            cursor = conn.cursor()
-            cursor.execute("SELECT close FROM candles_range WHERE ticker=? ORDER BY timestamp DESC LIMIT 1", (ticker,))
-            row = cursor.fetchone()
-            conn.close()
+            spot = None
+            if ticker and ticker != 'DUMMY':
+                try:
+                    tkr = yf.Ticker(ticker)
+                    fast_p = tkr.fast_info.get('lastPrice')
+                    if fast_p and not math.isnan(fast_p):
+                        spot = round(float(fast_p), 2)
+                except Exception as e:
+                    print(f"Error fetching live spot for options {ticker}: {e}")
             
-            spot = row[0] if (row and row[0] is not None) else 24000.0  # Fallback
+            if spot is None:
+                conn = sqlite3.connect(get_db_path(region))
+                cursor = conn.cursor()
+                cursor.execute("SELECT close FROM candles_range WHERE ticker=? ORDER BY timestamp DESC LIMIT 1", (ticker,))
+                row = cursor.fetchone()
+                conn.close()
+                spot = row[0] if (row and row[0] is not None) else 24000.0  # Fallback
             
+            step = get_strike_step(ticker, spot)
+            base = round(spot / step) * step
+            strikes = [base + i*step for i in range(-5, 6)]
+            
+            atm_time_val = max(5.0, spot * 0.015)
             import random
-            random.seed(spot) # Stable random for demonstration
-            base = round(spot / 50) * 50
-            strikes = [base + i*50 for i in range(-5, 6)]
+            import time
+            market_open = is_market_open(region)
+            if market_open:
+                tick_seed = int(spot * 100) + int(time.time() // 5)
+            else:
+                tick_seed = int(spot * 100) # Fixed deterministic seed when market is closed
+            random.seed(tick_seed)
+            
             options = []
             for s in strikes:
-                call_ltp = max(0.5, 300 - (s - spot)*0.5 + random.uniform(-10, 10))
-                put_ltp = max(0.5, 300 + (s - spot)*0.5 + random.uniform(-10, 10))
+                call_intrinsic = max(0.0, spot - s)
+                call_time_val = atm_time_val * math.exp(-abs(s - spot) / (3.0 * step))
+                call_ltp = max(0.50, call_intrinsic + call_time_val + random.uniform(-0.05 * atm_time_val, 0.05 * atm_time_val))
+                
+                put_intrinsic = max(0.0, s - spot)
+                put_time_val = atm_time_val * math.exp(-abs(s - spot) / (3.0 * step))
+                put_ltp = max(0.50, put_intrinsic + put_time_val + random.uniform(-0.05 * atm_time_val, 0.05 * atm_time_val))
+                
                 options.append({
-                    'strike': s,
+                    'strike': int(s) if step >= 1 and s == int(s) else round(s, 1),
                     'call_ltp': round(call_ltp, 2),
                     'call_oi': random.randint(1000, 150000),
                     'put_ltp': round(put_ltp, 2),
@@ -714,6 +800,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
 
             best_option = None
             max_oi = -1
+            best_type = 'Call'
             for opt in options:
                 if opt['call_oi'] > max_oi:
                     max_oi = opt['call_oi']
@@ -724,16 +811,18 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     best_option = opt
                     best_type = 'Put'
             
-            best_option['is_most_active_call'] = (best_type == 'Call')
-            best_option['is_most_active_put'] = (best_type == 'Put')
+            if best_option:
+                best_option['is_most_active_call'] = (best_type == 'Call')
+                best_option['is_most_active_put'] = (best_type == 'Put')
                 
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({
                 'ticker': ticker, 
-                'spot': spot,
+                'spot': round(spot, 2),
                 'options': options,
+                'is_market_open': market_open,
                 'note': 'Simulated Option Chain due to Yahoo Finance restrictions'
             }).encode('utf-8'))
             
@@ -781,5 +870,5 @@ if __name__ == '__main__':
     public_dir = os.path.join(base_dir, 'public')
     os.chdir(public_dir)
     server = HTTPServer(('0.0.0.0', 8001), RequestHandler)
-    print("Serving Multi-Timeframe Pattern Analyzer App on http://localhost:8001")
+    print("Serving Multi-Timeframe Pattern Analyzer App")
     server.serve_forever()
