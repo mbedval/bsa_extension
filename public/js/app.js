@@ -241,6 +241,64 @@ function initPatternCheckboxes() {
     });
 }
 
+function initPatternRibbonToggle() {
+    const ribbonHeader = document.getElementById('ribbonHeader');
+    const toggleBtn = document.getElementById('toggleRibbonBtn');
+    const ribbonSection = document.getElementById('patternFiltersSection');
+    const ribbonBody = document.getElementById('patternRibbonBody');
+    const toggleIcon = document.getElementById('ribbonToggleIcon');
+    const badge = document.getElementById('ribbonStatusBadge');
+
+    if (!ribbonHeader || !ribbonBody) return;
+
+    function toggleRibbon() {
+        const isCollapsed = ribbonBody.style.display === 'none' || ribbonBody.style.display === '';
+        if (isCollapsed) {
+            ribbonBody.style.display = 'block';
+            if (ribbonSection) ribbonSection.classList.add('expanded');
+            if (toggleBtn) {
+                toggleBtn.textContent = '▲ Collapse Ribbon';
+            }
+            if (toggleIcon) toggleIcon.textContent = '▼';
+            if (badge) {
+                badge.textContent = 'Expanded';
+                badge.style.background = 'rgba(63, 185, 80, 0.15)';
+                badge.style.color = '#3fb950';
+                badge.style.borderColor = 'rgba(63, 185, 80, 0.3)';
+            }
+        } else {
+            ribbonBody.style.display = 'none';
+            if (ribbonSection) ribbonSection.classList.remove('expanded');
+            if (toggleBtn) {
+                toggleBtn.textContent = '▼ Expand Ribbon';
+            }
+            if (toggleIcon) toggleIcon.textContent = '▶';
+            if (badge) {
+                badge.textContent = 'Collapsed';
+                badge.style.background = 'rgba(56, 189, 248, 0.15)';
+                badge.style.color = '#38bdf8';
+                badge.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+            }
+        }
+    }
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleRibbon();
+        });
+    }
+
+    if (ribbonHeader) {
+        ribbonHeader.addEventListener('click', (e) => {
+            if (e.target.closest('#selectAllPatternsBtn') || e.target.closest('#selectNonePatternsBtn')) {
+                return;
+            }
+            toggleRibbon();
+        });
+    }
+}
+
 function setupEventListeners() {
     document.querySelectorAll('.range-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -266,7 +324,9 @@ function setupEventListeners() {
     document.getElementById('removeTickerBtn').addEventListener('click', removeCurrentTicker);
     document.getElementById('cleanDbBtn').addEventListener('click', cleanDatabase);
 
-    // Pattern Select All/None
+    // Pattern Select All/None & Ribbon Toggle
+    initPatternRibbonToggle();
+
     const selectAllBtn = document.getElementById('selectAllPatternsBtn');
     const selectNoneBtn = document.getElementById('selectNonePatternsBtn');
     if (selectAllBtn) {
@@ -337,33 +397,34 @@ function setupEventListeners() {
 
 function addTicker() {
     const input = document.getElementById('newTickerInput');
-    const ticker = input.value.trim().toUpperCase();
-    if (!ticker) return;
+    let rawTicker = input.value.trim().toUpperCase();
+    if (!rawTicker) return;
 
-    if (region === 'india_deriv') {
-        if (ticker === 'NSEI' || ticker === 'NIFTY') {
-            input.value = '^NSEI';
-            return addTicker(); // recursive call with updated value
-        }
-        if (ticker === 'NSEBANK' || ticker === 'BANKNIFTY') {
-            input.value = '^NSEBANK';
-            return addTicker(); // recursive call with updated value
-        }
-        
-        if (!ticker.endsWith('.NS') && !ticker.startsWith('^')) {
-            alert(`"${ticker}" is not recognized as a valid NSE derivative format. Please use a ticker ending in .NS (e.g. RELIANCE.NS) or an index starting with ^ (e.g. ^NSEI).`);
-            return;
+    let finalTicker = rawTicker;
+
+    if (region === 'india' || region === 'india_deriv') {
+        if (rawTicker === 'NSEI' || rawTicker === 'NIFTY') {
+            finalTicker = '^NSEI';
+        } else if (rawTicker === 'NSEBANK' || rawTicker === 'BANKNIFTY') {
+            finalTicker = '^NSEBANK';
+        } else if (rawTicker === 'BSESN' || rawTicker === 'SENSEX') {
+            finalTicker = '^BSESN';
+        } else if (!rawTicker.startsWith('^')) {
+            // Check if string ends with .BO or .NS while entering ticker
+            if (!rawTicker.endsWith('.NS') && !rawTicker.endsWith('.BO')) {
+                finalTicker = rawTicker + '.NS'; // Append .NS by default
+            }
         }
     }
-    
+
     fetch(`/api/watchlist/add?region=${region}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: ticker })
+        body: JSON.stringify({ ticker: finalTicker })
     }).then(r => r.json()).then(data => {
         if (data.status === 'ok' || data.success) {
             input.value = '';
-            loadWatchlist(data.ticker || ticker);
+            loadWatchlist(data.ticker || finalTicker);
         } else {
             alert('Failed to add ticker.');
         }
@@ -809,8 +870,12 @@ function renderTradingViewWidget() {
     const container = document.getElementById('tvWidgetContainer');
     container.innerHTML = '';
 
-    const cleanSymbol = currentTicker.replace('.NS', '');
-    const tvSymbol = `NSE:${cleanSymbol}`;
+    let tvSymbol = `NSE:${currentTicker.replace('.NS', '')}`;
+    if (currentTicker.endsWith('.BO')) {
+        tvSymbol = `BSE:${currentTicker.replace('.BO', '')}`;
+    } else if (currentTicker.startsWith('^')) {
+        tvSymbol = currentTicker === '^NSEI' ? 'NSE:NIFTY' : (currentTicker === '^NSEBANK' ? 'NSE:BANKNIFTY' : 'BSE:SENSEX');
+    }
 
     let tvInterval = "60";
     let tvRange = "1M";
@@ -855,8 +920,26 @@ function truncateText(str) {
     return str;
 }
 
+function formatCompactTimestamp(str) {
+    if (!str) return '';
+    const match = str.match(/(\d{4})[-/](\d{2})[-/](\d{2})[\sT](\d{2}):(\d{2})/);
+    if (match) {
+        const [, year, month, day, hour, min] = match;
+        return `${day}/${month} ${hour}:${min}`;
+    }
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hour = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return `${day}/${month} ${hour}:${min}`;
+    }
+    return str;
+}
+
 function renderTablePage() {
-    const tbody = document.getElementById('patternsTableBody');
+    const tbody = document.getElementById('patternsMasterTable').querySelector('tbody') || document.getElementById('patternsTableBody');
     tbody.innerHTML = '';
 
     const total = filteredPatterns.length;
@@ -871,19 +954,20 @@ function renderTablePage() {
     const pageData = filteredPatterns.slice(startIdx, endIdx);
 
     if (pageData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #8b949e; padding: 20px;">No patterns detected matching selected criteria.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #8b949e; padding: 20px;">No patterns detected matching selected criteria.</td></tr>`;
     } else {
         pageData.forEach(p => {
             const tr = document.createElement('tr');
 
-            const badgeClass = p.pattern_type === 'Bullish' ? 'badge-bullish' : (p.pattern_type === 'Bearish' ? 'badge-bearish' : 'badge-neutral');
+            const isBull = p.pattern_type === 'Bullish';
+            const isBear = p.pattern_type === 'Bearish';
+            const nameColor = isBull ? 'var(--accent-green)' : (isBear ? 'var(--accent-red)' : 'var(--accent-purple)');
 
             tr.innerHTML = `
-                <td>${truncateText(p.datetime)}</td>
-                <td>${truncateText(p.pattern_name)}</td>
-                <td><span class="badge ${badgeClass}">${p.pattern_type}</span></td>
-                <td>₹${p.price.toFixed(2)}</td>
-                <td style="white-space: normal;">${p.details}</td>
+                <td style="white-space: nowrap; font-size: 0.8rem; color: var(--text-secondary);">${formatCompactTimestamp(p.datetime)}</td>
+                <td style="color: ${nameColor}; font-weight: 600; white-space: nowrap;" title="${p.pattern_name}">${truncateText(p.pattern_name)}</td>
+                <td style="white-space: nowrap;">₹${p.price.toFixed(2)}</td>
+                <td style="white-space: normal; word-break: break-word;">${p.details}</td>
             `;
             tbody.appendChild(tr);
         });

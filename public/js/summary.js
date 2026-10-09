@@ -6,13 +6,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('analyzerNavBtn').href = `/app.html?region=${region}`;
     
-    document.getElementById('refreshSummaryBtn').addEventListener('click', fetchSummary);
+    document.getElementById('refreshSummaryBtn').addEventListener('click', () => fetchSummary(true));
     
-    fetchSummary();
+    fetchSummary(false);
 });
 
-function fetchSummary() {
-    fetch(`/api/summary?region=${region}`)
+function fetchSummary(forceSync = false) {
+    const btn = document.getElementById('refreshSummaryBtn');
+    if (forceSync && btn) {
+        btn.disabled = true;
+        btn.textContent = '🔄 Syncing...';
+    }
+    
+    const refreshParam = forceSync ? '&refresh=true' : '';
+    fetch(`/api/summary?region=${region}${refreshParam}`)
         .then(res => res.json())
         .then(data => {
             const summaryData = data.summary || [];
@@ -21,6 +28,12 @@ function fetchSummary() {
         .catch(err => {
             console.error('Error fetching summary:', err);
             document.getElementById('summaryTableBody').innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ef5350;">Failed to load data.</td></tr>';
+        })
+        .finally(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '🔄 Sync Summary';
+            }
         });
 }
 
@@ -42,6 +55,8 @@ function renderTable(summaryData) {
         return;
     }
     
+    const currSymbol = region === 'us' ? '$' : '₹';
+    
     summaryData.forEach(p => {
         const tr = document.createElement('tr');
         tr.className = 'clickable-row';
@@ -50,7 +65,7 @@ function renderTable(summaryData) {
         });
         
         let badgeClass = 'summary-badge-neutral';
-        let sentimentText = 'Neutral'; // Although we are using badges, we can leave an empty string or standard symbol
+        let sentimentText = 'Neutral';
         if (p.pattern_type === 'Bullish') {
             badgeClass = 'summary-badge-bullish';
             sentimentText = '🟢';
@@ -59,18 +74,17 @@ function renderTable(summaryData) {
             sentimentText = '🔴';
         }
         
-        // Truncate details column to obey the 16 character rule, but since it was specifically excluded for app.js, 
-        // we will apply it here unless specified otherwise. We'll use truncateText for most text fields.
         tr.innerHTML = `
             <td style="font-weight: bold; color: var(--accent-blue);"><strong>${p.ticker}</strong></td>
             <td>${truncateText(p.pattern_name)}</td>
             <td><span class="${badgeClass}" style="display:inline-block; width:100%; text-align:center;">${sentimentText}</span></td>
             <td><span class="badge" style="background: #30363d;">${p.range}</span></td>
-            <td style="font-weight: bold; color: #58a6ff;">₹${p.live_price !== 0.0 ? p.live_price : '--'}</td>
-            <td>${p.pattern_price !== '--' ? '₹' + p.pattern_price : '--'}</td>
+            <td style="font-weight: bold; color: #58a6ff;">${currSymbol}${p.live_price !== 0.0 ? p.live_price : '--'}</td>
+            <td>${p.pattern_price !== '--' ? currSymbol + p.pattern_price : '--'}</td>
             <td>${truncateText(p.datetime)}</td>
             <td style="font-size: 0.85em; color: var(--text-secondary);">${truncateText(p.details)}</td>
         `;
         tbody.appendChild(tr);
     });
 }
+

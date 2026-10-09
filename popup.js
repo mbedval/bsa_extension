@@ -850,6 +850,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderTable();
   });
 
+  // Popup Ribbon Collapse / Expand Toggle
+  const popupRibbonHeader = document.getElementById('popupRibbonHeader');
+  const togglePopupRibbonBtn = document.getElementById('togglePopupRibbonBtn');
+  const popupRibbonIcon = document.getElementById('popupRibbonIcon');
+  const popupRibbonBadge = document.getElementById('popupRibbonBadge');
+
+  if (popupRibbonHeader && patternGridContainer) {
+    function togglePopupRibbon() {
+      const isHidden = patternGridContainer.style.display === 'none' || patternGridContainer.style.display === '';
+      if (isHidden) {
+        patternGridContainer.style.display = 'grid';
+        if (togglePopupRibbonBtn) togglePopupRibbonBtn.textContent = '▲ Collapse Ribbon';
+        if (popupRibbonIcon) popupRibbonIcon.textContent = '▼';
+        if (popupRibbonBadge) {
+          popupRibbonBadge.textContent = 'Expanded';
+          popupRibbonBadge.style.background = 'rgba(74, 222, 128, 0.15)';
+          popupRibbonBadge.style.color = '#4ade80';
+        }
+      } else {
+        patternGridContainer.style.display = 'none';
+        if (togglePopupRibbonBtn) togglePopupRibbonBtn.textContent = '▼ Expand Ribbon';
+        if (popupRibbonIcon) popupRibbonIcon.textContent = '▶';
+        if (popupRibbonBadge) {
+          popupRibbonBadge.textContent = 'Collapsed';
+          popupRibbonBadge.style.background = 'rgba(56, 189, 248, 0.15)';
+          popupRibbonBadge.style.color = '#38bdf8';
+        }
+      }
+    }
+
+    popupRibbonHeader.addEventListener('click', (e) => {
+      if (e.target.id === 'selectAllBtn' || e.target.id === 'deselectAllBtn') return;
+      togglePopupRibbon();
+    });
+  }
+
   // Pagination Handlers
   pageSizeSelect.addEventListener('change', (e) => {
     pageSize = e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10);

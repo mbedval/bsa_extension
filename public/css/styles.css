@@ -136,39 +136,87 @@ body {
     gap: 20px;
 }
 
-/* Metrics Bar */
+/* Metrics Bar - 8 Matrices in Single Row */
 .metrics-bar {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    overflow-x: auto;
 }
 
 .metric-card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 10px 10px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 4px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .metric-title {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .metric-value {
-    font-size: 1.2rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .metric-sub {
-    font-size: 0.85rem;
+    font-size: 0.72rem;
     color: var(--accent-blue);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Main Row: Chart & Pattern Log Side-by-Side */
+.chart-and-log-wrapper {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+    width: 100%;
+}
+
+.chart-and-log-wrapper .chart-section {
+    flex: 1.15;
+    min-width: 0;
+}
+
+.chart-and-log-wrapper .table-section {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.chart-and-log-wrapper .table-container {
+    flex: 1;
+    max-height: 440px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+@media (max-width: 1100px) {
+    .chart-and-log-wrapper {
+        flex-direction: column;
+    }
 }
 
 /* Chart Section */
@@ -214,18 +262,70 @@ body {
     height: 500px;
 }
 
-/* Pattern Filters Section */
+/* Pattern Filters Section / Ribbon */
 .pattern-filters-section {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 12px;
-    padding: 20px;
+    padding: 14px 20px;
+    transition: all 0.3s ease;
 }
 
-.pattern-filters-section h3 {
+.ribbon-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ribbon-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ribbon-title-group h3 {
     font-size: 1rem;
     font-weight: 600;
-    margin-bottom: 14px;
+    margin: 0;
+}
+
+.ribbon-toggle-icon {
+    font-size: 0.85rem;
+    color: var(--accent-blue);
+    transition: transform 0.2s ease;
+}
+
+.ribbon-badge {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    font-weight: 600;
+}
+
+.ribbon-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pattern-ribbon-body {
+    display: none; /* Collapsed by default */
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--card-border);
+}
+
+.pattern-filters-section.expanded .ribbon-toggle-icon {
+    transform: rotate(90deg);
+}
+
+.pattern-filters-section.expanded .pattern-ribbon-body {
+    display: block;
 }
 
 .pattern-checkboxes-grid {

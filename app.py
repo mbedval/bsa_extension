@@ -21,6 +21,9 @@ def get_db_path(region):
         return os.path.join(base_dir, 'ind_deriv_database.sqlite')
     return os.path.join(base_dir, 'ind_database.sqlite')
 
+def get_db_connection(region):
+    return sqlite3.connect(get_db_path(region), timeout=30.0)
+
 def get_strike_step(ticker, spot):
     """Calculate standard NSE/BSE strike price steps for indices and equity options based on spot price."""
     if spot is None or spot <= 0:
@@ -115,11 +118,11 @@ def init_db(region='india'):
         )
     ''')
     if region == 'us':
-        default_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'DUMMY']
+        default_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
     elif region == 'india_deriv':
-        default_tickers = ['^NSEI', '^BSESN', '^NSEBANK', 'DUMMY']
+        default_tickers = ['^NSEI', '^BSESN', '^NSEBANK']
     else:
-        default_tickers = ['NAUKRI.NS', 'INFY.NS', 'HDFCBANK.NS', 'RELIANCE.NS', 'BSE.NS', 'DUMMY']
+        default_tickers = ['NAUKRI.NS', 'INFY.NS', 'HDFCBANK.NS', 'RELIANCE.NS', 'BSE.NS']
         
     for t in default_tickers:
         cursor.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?, datetime('now'))", (t,))
@@ -140,30 +143,12 @@ def fetch_yahoo_range(ticker, range_key='1mo', region='india'):
         interval = '1d'
         
     try:
-        if ticker == 'DUMMY':
-            import numpy as np
-            np.random.seed(42) # Deterministic
-            # Create 100 data points of a strong bullish trend with a pullback and then a breakout
-            # This will guarantee strong momentum and some patterns
-            trend = np.linspace(100, 150, 100)
-            noise = np.random.normal(0, 1.5, 100)
-            # Add a pullback in the middle (e.g. index 50 to 70)
-            pullback = np.zeros(100)
-            pullback[50:70] = np.linspace(0, -15, 20)
-            pullback[70:] = np.linspace(-15, 0, 30)
-            
-            prices_close = trend + noise + pullback
-            prices_open = prices_close - np.random.normal(0, 0.5, 100)
-            prices_high = np.maximum(prices_close, prices_open) + np.random.uniform(0.1, 2, 100)
-            prices_low = np.minimum(prices_close, prices_open) - np.random.uniform(0.1, 2, 100)
-            dates = pd.date_range(end=pd.Timestamp.now(tz='UTC'), periods=100, freq='D')
-            df = pd.DataFrame({'Open': prices_open, 'High': prices_high, 'Low': prices_low, 'Close': prices_close, 'Volume': np.random.randint(10000, 50000, 100)}, index=dates)
-        else:
-            tkr = yf.Ticker(ticker)
-            df = tkr.history(period=range_key, interval=interval)
-            df.dropna(subset=['Open', 'High', 'Low', 'Close'], inplace=True)
-            if df.empty:
-                return 0
+        tkr = yf.Ticker(ticker)
+        df = tkr.history(period=range_key, interval=interval)
+        df.dropna(subset=['Open', 'High', 'Low', 'Close'], inplace=True)
+        if df.empty:
+            return 0
+
             
         candles = []
         
@@ -394,8 +379,18 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({'watchlist': tickers}).encode('utf-8'))
             
         elif path == '/api/watchlist/add':
-            ticker = query.get('ticker', [''])[0].upper()
+            ticker = query.get('ticker', [''])[0].strip().upper()
             if ticker:
+                if region in ['india', 'india_deriv']:
+                    if ticker in ['NSEI', 'NIFTY']:
+                        ticker = '^NSEI'
+                    elif ticker in ['NSEBANK', 'BANKNIFTY']:
+                        ticker = '^NSEBANK'
+                    elif ticker in ['BSESN', 'SENSEX']:
+                        ticker = '^BSESN'
+                    elif not ticker.startswith('^'):
+                        if not (ticker.endswith('.NS') or ticker.endswith('.BO')):
+                            ticker = ticker + '.NS'
                 conn = sqlite3.connect(get_db_path(region))
                 cursor = conn.cursor()
                 cursor.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?, datetime('now'))", (ticker,))
@@ -404,7 +399,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+                self.wfile.write(json.dumps({'success': True, 'ticker': ticker}).encode('utf-8'))
             else:
                 self.send_error(400, "Missing ticker")
                 
@@ -588,10 +583,6 @@ class RequestHandler(SimpleHTTPRequestHandler):
                                     if latest['low'] <= ob_high and latest['close'] > ob_low:
                                         order_flow_verdict['order_block_mitigation'] = True
 
-                        if ticker == 'DUMMY':
-                            order_flow_verdict['volume_expansion'] = True
-                            order_flow_verdict['order_block_mitigation'] = True
-
                         # 3. Elliott Wave Projections (Swing & Intraday)
                         
                         def calculate_ew_targets(df_subset):
@@ -626,10 +617,7 @@ class RequestHandler(SimpleHTTPRequestHandler):
                         intraday_w3, intraday_w5 = calculate_ew_targets(df.tail(15))
                         if intraday_w3:
                             elliott_wave_targets["intraday"] = {"w3": intraday_w3, "w5": intraday_w5, "status": "Active Projection"}
-                        
-                        if ticker == 'DUMMY':
-                            elliott_wave_targets["swing"] = {"w3": 172.50, "w5": 195.00, "status": "Active Projection"}
-                            elliott_wave_targets["intraday"] = {"w3": 145.20, "w5": 158.40, "status": "Active Projection"}
+
 
 
                     except Exception as e:
@@ -672,20 +660,39 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 self.send_error(400, "Missing ticker")
                 
         elif path == '/api/summary':
-            conn = sqlite3.connect(get_db_path(region))
+            is_refresh = query.get('refresh', ['false'])[0] == 'true' or query.get('sync', ['false'])[0] == 'true'
+            
+            conn = get_db_connection(region)
             cursor = conn.cursor()
             
             # 1. Get all tickers in watchlist
             cursor.execute("SELECT ticker FROM watchlist")
             watchlist_tickers = [row[0] for row in cursor.fetchall()]
+            conn.close()
             
             if not watchlist_tickers:
-                conn.close()
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({'region': region, 'summary': []}).encode('utf-8'))
                 return
+
+            # If refresh requested, fetch latest data & evaluate patterns for all watchlist tickers
+            if is_refresh:
+                from concurrent.futures import ThreadPoolExecutor
+                
+                def sync_task(args):
+                    t, r_k, reg = args
+                    fetch_yahoo_range(t, r_k, reg)
+
+                ranges_to_sync = ['1mo', '1d', '5d', '3mo', '6mo']
+                tasks = [(t, r_k, region) for t in watchlist_tickers for r_k in ranges_to_sync]
+                
+                with ThreadPoolExecutor(max_workers=8) as executor:
+                    list(executor.map(sync_task, tasks))
+
+            conn = get_db_connection(region)
+            cursor = conn.cursor()
 
             # 2. Fetch the most recent pattern per ticker across any timeframe
             cursor.execute("""
@@ -698,7 +705,6 @@ class RequestHandler(SimpleHTTPRequestHandler):
                 )
             """)
             pattern_rows = cursor.fetchall()
-            conn.close()
             
             # Map patterns by ticker
             patterns_by_ticker = {
@@ -726,9 +732,20 @@ class RequestHandler(SimpleHTTPRequestHandler):
             summary = []
             for t in watchlist_tickers:
                 p_data = patterns_by_ticker.get(t, {})
+                live_price = 0.0
+                lp = live_prices.get(t, 0.0)
+                if isinstance(lp, (int, float)) and not math.isnan(lp) and lp > 0:
+                    live_price = round(float(lp), 2)
+                else:
+                    # Fallback to latest close in candles_range
+                    cursor.execute("SELECT close FROM candles_range WHERE ticker=? ORDER BY timestamp DESC LIMIT 1", (t,))
+                    row = cursor.fetchone()
+                    if row and row[0] is not None:
+                        live_price = round(float(row[0]), 2)
+
                 summary.append({
                     'ticker': t,
-                    'live_price': round(live_prices.get(t, 0.0), 2) if not __import__('math').isnan(live_prices.get(t, 0.0)) else 0.0,
+                    'live_price': live_price,
                     'range': p_data.get('range', '--'),
                     'timestamp': p_data.get('timestamp', 0),
                     'datetime': p_data.get('datetime', '--'),
@@ -738,6 +755,8 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     'details': p_data.get('details', '--')
                 })
             
+            conn.close()
+
             # Sort by pattern timestamp descending, then ticker
             summary.sort(key=lambda x: (x['timestamp'], x['ticker']), reverse=True)
             
@@ -745,11 +764,12 @@ class RequestHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({'region': region, 'summary': summary}).encode('utf-8'))
+
             
         elif path == '/api/options':
             ticker = query.get('ticker', [''])[0]
             spot = None
-            if ticker and ticker != 'DUMMY':
+            if ticker:
                 try:
                     tkr = yf.Ticker(ticker)
                     fast_p = tkr.fast_info.get('lastPrice')
@@ -840,6 +860,16 @@ class RequestHandler(SimpleHTTPRequestHandler):
             body = json.loads(self.rfile.read(length).decode('utf-8'))
             ticker = body.get('ticker', '').strip().upper()
             if ticker:
+                if region in ['india', 'india_deriv']:
+                    if ticker in ['NSEI', 'NIFTY']:
+                        ticker = '^NSEI'
+                    elif ticker in ['NSEBANK', 'BANKNIFTY']:
+                        ticker = '^NSEBANK'
+                    elif ticker in ['BSESN', 'SENSEX']:
+                        ticker = '^BSESN'
+                    elif not ticker.startswith('^'):
+                        if not (ticker.endswith('.NS') or ticker.endswith('.BO')):
+                            ticker = ticker + '.NS'
                 conn = sqlite3.connect(get_db_path(region))
                 cursor = conn.cursor()
                 cursor.execute("INSERT OR IGNORE INTO watchlist (ticker, added_at) VALUES (?, datetime('now'))", (ticker,))
